@@ -955,7 +955,14 @@ def styler_plan(on):
     win = Path(app_icons.taskbar_png("windows", app_icons.OUT / "taskbar-windows.png")).as_uri()
     search = Path(app_icons.taskbar_png("search", app_icons.OUT / "taskbar-search.png")).as_uri()
     # the wide search box keeps its icon on the left; the icon-only button centers it
-    align = "Left" if rget(SEARCH, "SearchboxTaskbarMode", 2) == 2 else "Center"
+    # (the Vertical Taskbar mod always shows search as just an icon)
+    vertical = False
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Windhawk\Engine\Mods\taskbar-vertical") as k:
+            vertical = winreg.QueryValueEx(k, "Disabled")[0] == 0
+    except OSError:
+        pass
+    align = "Left" if rget(SEARCH, "SearchboxTaskbarMode", 2) == 2 and not vertical else "Center"
     wanted = [
         (f"{START_BTN} > Grid > Microsoft.UI.Xaml.Controls.AnimatedVisualPlayer#Icon, "
          f"{START_BTN} > Microsoft.UI.Xaml.Controls.AnimatedVisualPlayer#Icon",

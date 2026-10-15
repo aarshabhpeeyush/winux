@@ -13,7 +13,9 @@
 - **App icons** (ICONS+SOUNDS): pixel-art logos for Chrome, File Explorer, Claude, VLC, Discord,
   Spotify, Roblox, DELTARUNE, UNDERTALE and Steam shortcuts (desktop, Start menu, taskbar),
   plus a pixel folder icon. One Windows permission prompt; ORIGINAL puts every icon back.
-- Lively Wallpaper gets a 7-souls icon; the Windows icon is the classic four colors.
+- Lively Wallpaper gets a 7-souls icon.
+- With Windhawk's **Taskbar Styler** mod (Windows 11), the Start button becomes the classic
+  four-color Windows logo and the search button gets a pixel magnifier.
 - Fixes from the first Windows 10 tester:
   - `.bat` and `.ps1` files now always have Windows line endings in downloads.
   - The installer unblocks its downloaded files, saves `install-log.txt`, and shows what went wrong.
