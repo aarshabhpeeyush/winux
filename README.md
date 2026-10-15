@@ -31,6 +31,26 @@ Every theme comes with its own animated pixel-art wallpaper.
 | Judgment Hall | Golden light. Someone is waiting. |
 | Forgotten Man | **♪ Music**: his red tree, and his theme |
 
+## Widgets
+
+Desktop widgets in Deltarune text boxes (powered by Rainmeter). Turn them on in **WIDGETS**.
+
+| Widget | |
+|---|---|
+| Clock | Big pixel clock with the date |
+| PC Status | CPU, RAM and disk as HP bars |
+| Now Playing | What Spotify is playing |
+| Dialog Box | Says something new every 10 minutes |
+| Menu | Quick launcher |
+| Weather | The weather, as told by a [[Big Shot]] |
+| Battery HP | Your battery as your HP bar (desktops have ∞ HP) |
+| Calendar | This month, with today on your soul |
+| Save Point | Click the star to save |
+| Tem Shop | hOI!! Opens your apps |
+| Focus Timer | FIGHT your task for 25 minutes, then take a break |
+
+Right-click any widget → **Edit skin** to change things like the Weather city or the shop items.
+
 You can also save your own themes, add your own wallpapers / videos / GIFs, and turn a
 drawing into a theme (ART → THEME pulls the colors out of a PNG).
 

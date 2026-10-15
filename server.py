@@ -37,7 +37,7 @@ LIVELY_DATA = Path(os.environ.get("LOCALAPPDATA", "")) / "Lively Wallpaper"
 LIVELY_LIB = LIVELY_DATA / "Library" / "wallpapers"
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp"}
 VIDEO_EXTS = {".mp4", ".webm", ".mkv", ".mov", ".gif"}
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 TOKEN = secrets.token_hex(16)
 
 for d in (WALLPAPERS, ART_INBOX, THEMES, BACKUPS, LIVE_WALLS):
@@ -581,10 +581,18 @@ WINUX_WIDGETS = {
     "Music": ("Now Playing", "What Spotify is playing, with play/skip buttons."),
     "Dialog": ("Dialog Box", "Says something new every 10 minutes. Click it for more."),
     "Menu": ("Menu", "Launch Files, YouTube, Spotify, Discord and WinUx."),
+    "Weather": ("Weather", "The weather, as told by a [[Big Shot]]. Click for a new pitch."),
+    "Battery": ("Battery HP", "Your battery as an HP bar. Desktops have infinite HP."),
+    "Calendar": ("Calendar", "This month, with today sitting on your soul."),
+    "SavePoint": ("Save Point", "Click the star to save. LV = days your PC has been on."),
+    "Shop": ("Tem Shop", "hOI!! Click an item to open that app."),
+    "Timer": ("Focus Timer", "FIGHT your task for 25 minutes, then take a break."),
 }
 # Where each widget lands the first time (you can drag them anywhere after).
 WIDGET_SPOTS = {"Clock": (40, 760), "Stats": (440, 790), "Music": (1480, 830),
-                "Dialog": (860, 900), "Menu": (40, 420)}
+                "Dialog": (860, 900), "Menu": (40, 420),
+                "Battery": (300, 40), "SavePoint": (690, 40), "Weather": (1190, 40),
+                "Shop": (300, 200), "Calendar": (1540, 250), "Timer": (1480, 600)}
 
 
 def rm_read():
@@ -680,7 +688,10 @@ def set_widget(config, on, file=None):
             raise RuntimeError(f"Couldn't find the widget {config}.")
         keys = rm_read().get(config, {})
         first_time = keys.get("WindowX", "0") == "0" and keys.get("WindowY", "0") == "0"
+        was_on = config in active_configs()
         rm_bang("!ActivateConfig", config, file)
+        if was_on:
+            rm_bang("!Refresh", config)  # already showing: reload it so new files take effect
         time.sleep(1)
         if config not in active_configs():
             # Rainmeter only knows skins that existed when it started. Make it look again.

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.1 (not released yet)
+
+- 6 new widgets:
+  - **Weather**: the weather as a Spamton sales pitch ("THE CURRENT WEATHER IS [[CLOUDY]]!!"). Uses wttr.in, no account.
+  - **Battery HP**: your battery as an HP bar with your Windows name. Shakes when low, heals when plugged in. Desktops have ∞ HP.
+  - **Calendar**: this month, with today sitting on a red soul.
+  - **Save Point**: click the star to save. Shows your name, LV (days your PC has been on) and uptime.
+  - **Tem Shop**: hOI!! A Temmie shop that opens your apps.
+  - **Focus Timer**: a pomodoro timer as a battle. FIGHT, ACT, MERCY.
+- Widgets that are already on now reload when WinUx updates them.
+
 ## 1.0.0 (2026-10-15): first public release
 
 - Control panel at `http://127.0.0.1:7777` with COLORS, WALLPAPER, LIVE WALLS, TASKBAR,
