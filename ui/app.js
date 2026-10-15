@@ -558,7 +558,23 @@ const LOOK_SAYS = {
 
 for (const group of document.querySelectorAll(".looks")) {
   for (const b of group.querySelectorAll(".look")) {
-    b.addEventListener("click", () => apply({ [group.dataset.key]: b.dataset.val }, LOOK_SAYS[group.dataset.key][b.dataset.val]));
+    b.addEventListener("click", async () => {
+      if (group.dataset.key !== "appIcons") {
+        return apply({ [group.dataset.key]: b.dataset.val }, LOOK_SAYS[group.dataset.key][b.dataset.val]);
+      }
+      // app icons take a few seconds, and Windows may ask for permission
+      say("* Changing app icons... if Windows asks for permission, click Yes.");
+      group.classList.add("busy");
+      await apply({ appIcons: b.dataset.val });
+      group.classList.remove("busy");
+      const r = state.appIconsResult;
+      if (!r) return;
+      const done = b.dataset.val === "pixel"
+        ? `${r.changed} app shortcuts went pixel!`
+        : `${r.changed} app shortcuts are back to normal.`;
+      say(r.admin ? done + " (Pinned taskbar icons may need RESTART TASKBAR.)"
+                  : done + " Shared shortcuts and folders were skipped (no permission).");
+    });
   }
 }
 

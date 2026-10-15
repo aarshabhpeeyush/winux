@@ -339,6 +339,7 @@ input[type=text]:focus, select:focus { outline: none; border-color: var(--select
 .look.on .look-name { color: var(--select); }
 .look.on .look-name::before { content: "♥ "; color: var(--soul); }
 .look-pic { height: 44px; image-rendering: pixelated; }
+.look-pic.wide { height: 32px; max-width: 100%; }
 .look-pic.plain {
   display: grid;
   place-items: center;

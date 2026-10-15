@@ -738,6 +738,7 @@ def apply_widget_set(names):
 # ---------------------------------------------------------------- cursors, sounds, desktop icons
 
 import assets  # noqa: E402  (WinUx's own pixel art + chiptunes)
+import app_icons  # noqa: E402  (pixel-art app logos)
 
 GENERATED = ROOT / "generated"
 SPI_SETCURSORS = 0x0057
@@ -827,6 +828,135 @@ def set_icons(scheme):
     else:
         restore_values(ICON_VALUES)
     refresh_icons()
+
+
+# ---------------------------------------------------------------- app icons
+
+# Pixel-art logos for app shortcuts on the desktop, the Start menu and the taskbar.
+# Shortcuts for everyone (Public Desktop, the shared Start menu) and the folder icon
+# need admin, so those go in one Windows permission prompt.
+SHORTCUT_TOOL = ROOT / "tools" / "shortcuts.ps1"
+APP_ICONS_BACKUP = BACKUPS / "app-icons.json"
+ADMIN_PLACES = ("public-desktop", "public-start")
+SHELL_ICONS = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Icons"
+
+
+def which_app(sc):
+    """Which app a shortcut opens (or None). sc = one item from shortcuts.ps1 list."""
+    exe = Path(sc.get("target") or "").name.lower()
+    name = (sc.get("name") or "").lower()
+    url = (sc.get("url") or "").lower()
+    args = (sc.get("args") or "").lower()
+    if exe == "chrome.exe":
+        return "chrome"
+    if name == "file explorer" or (exe == "explorer.exe" and not args):
+        return "files"
+    if exe == "claude.exe" or name == "claude":
+        return "claude"
+    if exe == "vlc.exe":
+        return "vlc"
+    if exe == "discord.exe" or (exe == "update.exe" and "discord" in args):
+        return "discord"
+    if exe == "spotify.exe":
+        return "spotify"
+    if exe.startswith("robloxplayer") or name in ("roblox", "roblox player"):
+        return "roblox"
+    if exe == "deltarune.exe" or "rungameid/1671210" in url or "deltarune" in name:
+        return "deltarune"
+    if exe == "undertale.exe" or "rungameid/391540" in url or "undertale" in name:
+        return "undertale"
+    if exe == "steam.exe":
+        return "steam"
+    return None
+
+
+def run_tool(mode, data=None, admin=False):
+    """Run shortcuts.ps1. Returns its output (list for "list", log lines otherwise)."""
+    tmp = BACKUPS / "tmp"
+    tmp.mkdir(exist_ok=True)
+    out = tmp / f"{mode}-out.json"
+    inp = tmp / f"{mode}-in.json"
+    out.unlink(missing_ok=True)
+    args = ["-Mode", mode, "-Out", str(out)]
+    if data is not None:
+        inp.write_text(json.dumps(data), encoding="utf-8")
+        args += ["-In", str(inp)]
+    base = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass"]
+    if admin:
+        # One UAC prompt. Quotes keep paths with spaces in one piece.
+        arglist = ",".join("'\"{}\"'".format(a) if " " in a else f"'{a}'"
+                           for a in ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(SHORTCUT_TOOL), *args])
+        cmd = base + ["-WindowStyle", "Hidden", "-Command",
+                      f"Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList {arglist}"]
+    else:
+        cmd = base + ["-File", str(SHORTCUT_TOOL), *args]
+    subprocess.run(cmd, capture_output=True, timeout=240, creationflags=subprocess.CREATE_NO_WINDOW)
+    if not out.is_file():
+        return None
+    text = out.read_text(encoding="utf-8-sig")
+    return json.loads(text) if mode == "list" else text.splitlines()
+
+
+def app_icons_backup():
+    try:
+        return json.loads(APP_ICONS_BACKUP.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {"pack": "default", "shortcuts": {}, "folder": None}
+
+
+def app_icons_state():
+    return app_icons_backup().get("pack", "default")
+
+
+def set_app_icons(pack):
+    """pack "pixel" = WinUx logos, "default" = put every original icon back."""
+    back = app_icons_backup()
+    shortcuts = run_tool("list") or []
+    user, admin = [], []
+    folder = None
+    if pack == "pixel":
+        files = app_icons.build_app_icons()
+        for sc in shortcuts:
+            app = which_app(sc)
+            if not app:
+                continue
+            back["shortcuts"].setdefault(sc["path"], sc.get("icon") or "")   # remember the original once
+            (admin if sc["place"] in ADMIN_PLACES else user).append({"path": sc["path"], "icon": files[app]})
+        if "folder" not in back or back.get("folderSaved") is not True:
+            try:
+                with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, SHELL_ICONS) as k:
+                    back["folder"] = winreg.QueryValueEx(k, "3")[0]
+            except OSError:
+                back["folder"] = None
+            back["folderSaved"] = True
+        folder = files["folder"]
+    else:
+        places = {sc["path"]: sc["place"] for sc in shortcuts}
+        for path, icon in back["shortcuts"].items():
+            if path in places:
+                (admin if places[path] in ADMIN_PLACES else user).append({"path": path, "icon": icon})
+        folder = (back.get("folder") or "").rsplit(",", 1)[0] if back.get("folderSaved") else None
+    APP_ICONS_BACKUP.write_text(json.dumps(back, indent=2), encoding="utf-8")
+
+    log = run_tool("set", {"shortcuts": user}) or [] if user else []
+    admin_ok = True
+    if admin or pack == "pixel" or back.get("folderSaved"):
+        res = run_tool("admin", {"shortcuts": admin, "folder": folder or ""}, admin=True)
+        admin_ok = res is not None
+        log += res or []
+    if pack == "default" and admin_ok:
+        back = {"pack": "default", "shortcuts": {}, "folder": None}
+    else:
+        back["pack"] = pack
+    APP_ICONS_BACKUP.write_text(json.dumps(back, indent=2), encoding="utf-8")
+    refresh_icons()
+    try:
+        subprocess.run(["ie4uinit.exe", "-show"], timeout=20,   # rebuild Windows' icon cache
+                       capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    changed = sum(1 for line in log if line.startswith("ok "))
+    return {"changed": changed, "admin": admin_ok}
 
 
 # ---------------------------------------------------------------- start with Windows
@@ -988,6 +1118,7 @@ def get_state():
         "cursors": cursors_state(),
         "sounds": sounds_state(),
         "icons": icons_state(),
+        "appIcons": app_icons_state(),
         "rainmeter": RAINMETER.is_file(),
         "widgets": sorted(c.split("\\", 1)[1] for c in active_configs() if c.startswith("WinUx\\")),
     }
@@ -1026,6 +1157,9 @@ def apply_settings(s):
         set_sounds(s["sounds"])
     if s.get("icons") in ("default", "pixel"):
         set_icons(s["icons"])
+    app_result = None
+    if s.get("appIcons") in ("default", "pixel"):
+        app_result = set_app_icons(s["appIcons"])
 
     if RAINMETER.is_file():
         if isinstance(s.get("widgets"), list):
@@ -1066,6 +1200,8 @@ def apply_settings(s):
     state = get_state()
     if "live" in s and state["lively"]:
         state["live"] = s["live"] or None  # Lively saves its layout a moment later
+    if app_result:
+        state["appIconsResult"] = app_result
     return state
 
 
@@ -1133,6 +1269,8 @@ def restore_original():
     set_autohide(data.get("autoHide", False))
     reload_cursors()
     refresh_icons()
+    if app_icons_state() != "default":
+        set_app_icons("default")
     if RAINMETER.is_file() and "rainmeterActive" in data:
         # Put the widgets back exactly how they were: same ones on, same ones off.
         was, now = data["rainmeterActive"], active_configs()
@@ -1524,6 +1662,7 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     ensure_original_backup()
     assets.build_previews(get_state_accent())
+    app_icons.preview_png(assets.OUT / "previews" / "app-icons.png", scale=2, gap=6)
     assets.build_sounds()
     try:
         server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)

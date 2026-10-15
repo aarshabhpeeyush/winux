@@ -10,6 +10,9 @@
   - **Tem Shop**: hOI!! A Temmie shop that opens your apps.
   - **Focus Timer**: a pomodoro timer as a battle. FIGHT, ACT, MERCY.
 - Widgets that are already on now reload when WinUx updates them.
+- **App icons** (ICONS+SOUNDS): pixel-art logos for Chrome, File Explorer, Claude, VLC, Discord,
+  Spotify, Roblox, DELTARUNE, UNDERTALE and Steam shortcuts (desktop, Start menu, taskbar),
+  plus a pixel folder icon. One Windows permission prompt; ORIGINAL puts every icon back.
 
 ## 1.0.0 (2026-10-15): first public release
 
