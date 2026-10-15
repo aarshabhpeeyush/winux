@@ -78,6 +78,18 @@ Next time, double-click **`Start WinUx.bat`** (or let it start with Windows).
 The installer uses `winget` (built into Windows 11 and recent Windows 10). If you don't
 have it, it shows you the download links instead.
 
+## If something goes wrong
+
+- **"Windows protected your PC"** when you open `install.bat`: click **More info**, then **Run anyway**.
+  (Windows says this about any new file from the internet.)
+- **Don't double-click `install.ps1`.** Windows just opens it in Notepad. Use `install.bat`.
+- **The installer stopped with an error:** it saves everything it did in `install-log.txt`
+  in the WinUx folder. Send that file on the GitHub page (Issues) and we'll fix it.
+- **WinUx doesn't open:** run `Start WinUx.bat`. If WinUx can't start, it now shows why, and
+  saves the details in `winux-error.log`. Send that file too.
+- **Widgets are in odd places on a small screen:** just drag them where you like.
+  Right-click a widget → **Settings** to lock it in place.
+
 ## Windows 10 vs 11
 
 WinUx works on both. On Windows 10:

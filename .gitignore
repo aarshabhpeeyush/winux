@@ -20,3 +20,5 @@ live-walls/*.webm
 live-walls/*.mov
 live-walls/*.mkv
 live-walls/*.gif
+winux-error.log
+install-log.txt

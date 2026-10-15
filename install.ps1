@@ -3,7 +3,22 @@
 
 $ErrorActionPreference = "Stop"
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
-Set-Location $Here
+Set-Location -LiteralPath $Here
+
+# Everything this installer does is also saved to install-log.txt (send it if something breaks).
+try { Start-Transcript -LiteralPath (Join-Path $Here "install-log.txt") -Force | Out-Null } catch {}
+
+# If anything goes wrong, say what and where the log is, instead of just closing.
+trap {
+    Write-Host ""
+    Write-Host "  * Something went wrong: $_" -ForegroundColor Red
+    Write-Host "  * Please send install-log.txt (in the WinUx folder) to the WinUx GitHub page." -ForegroundColor Red
+    try { Stop-Transcript | Out-Null } catch {}
+    exit 1
+}
+
+# Files downloaded from the internet are "blocked" by Windows, which can stop scripts. Unblock ours.
+Get-ChildItem -LiteralPath $Here -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue
 
 function Say($text, $color = "White") { Write-Host $text -ForegroundColor $color }
 function Ask($question) {
@@ -66,7 +81,7 @@ if (-not $pyw) {
 }
 Say "  * Python: $pyw" Green
 # Start WinUx.bat reads this so it always uses the right Python
-Set-Content -Path (Join-Path $Here ".pythonw") -Value $pyw -Encoding ASCII
+Set-Content -LiteralPath (Join-Path $Here ".pythonw") -Value $pyw -Encoding ASCII
 
 # ------------------------------------------------------------ helper apps
 Say ""
@@ -124,5 +139,5 @@ Say ""
 Say "  * All done! Opening WinUx..." Yellow
 Say "  * Your current look is backed up the first time WinUx starts."
 Say "    BACKUP > RESTORE puts everything back exactly how it was."
-Start-Process -FilePath $pyw -ArgumentList "`"$server`"" -WorkingDirectory $Here
-Start-Sleep -Seconds 2
+Start-Process -FilePath (Join-Path $Here "Start WinUx.bat") -WorkingDirectory $Here
+try { Stop-Transcript | Out-Null } catch {}

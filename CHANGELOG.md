@@ -13,6 +13,13 @@
 - **App icons** (ICONS+SOUNDS): pixel-art logos for Chrome, File Explorer, Claude, VLC, Discord,
   Spotify, Roblox, DELTARUNE, UNDERTALE and Steam shortcuts (desktop, Start menu, taskbar),
   plus a pixel folder icon. One Windows permission prompt; ORIGINAL puts every icon back.
+- Lively Wallpaper gets a 7-souls icon; the Windows icon is the classic four colors.
+- Fixes from the first Windows 10 tester:
+  - `.bat` and `.ps1` files now always have Windows line endings in downloads.
+  - The installer unblocks its downloaded files, saves `install-log.txt`, and shows what went wrong.
+  - WinUx no longer fails silently: errors go to `winux-error.log` with a message box,
+    and `Start WinUx.bat` shows the error if the panel doesn't come up.
+  - Widgets start in spots that fit the screen (no more off-screen widgets on 1366x768).
 
 ## 1.0.0 (2026-10-15): first public release
 

@@ -22,7 +22,34 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-PORT = 7777
+
+def _crash(kind, value, tb):
+    """WinUx runs without a window (pythonw), so a crash would be invisible.
+    Write it to winux-error.log and say so in a message box."""
+    import traceback
+    text = time.strftime("%Y-%m-%d %H:%M:%S ") + "".join(traceback.format_exception(kind, value, tb))
+    log = Path(__file__).resolve().parent / "winux-error.log"
+    for spot in (log, Path(os.environ.get("LOCALAPPDATA", ".")) / "WinUx" / "winux-error.log"):
+        try:
+            spot.parent.mkdir(parents=True, exist_ok=True)
+            with open(spot, "a", encoding="utf-8") as f:
+                f.write(text + "\n")
+            log = spot
+            break
+        except OSError:
+            continue
+    try:
+        ctypes.windll.user32.MessageBoxW(
+            None, f"WinUx couldn't start:\n\n{value}\n\nThe details are in:\n{log}\n\n"
+                  "Please send that file (or a screenshot of this) to the WinUx GitHub page.",
+            "WinUx", 0x10)
+    except Exception:
+        pass
+
+
+sys.excepthook = _crash
+
+PORT = int(os.environ.get("WINUX_PORT", "7777"))   # another port only for testing
 ROOT = Path(__file__).resolve().parent
 UI = ROOT / "ui"
 WALLPAPERS = ROOT / "wallpapers"
@@ -588,11 +615,44 @@ WINUX_WIDGETS = {
     "Shop": ("Tem Shop", "hOI!! Click an item to open that app."),
     "Timer": ("Focus Timer", "FIGHT your task for 25 minutes, then take a break."),
 }
-# Where each widget lands the first time (you can drag them anywhere after).
+# Where each widget lands the first time on a 1920x1080 screen (you can drag them
+# anywhere after). Other screen sizes get the same layout scaled to fit.
 WIDGET_SPOTS = {"Clock": (40, 760), "Stats": (440, 790), "Music": (1480, 830),
                 "Dialog": (860, 900), "Menu": (40, 420),
-                "Battery": (300, 40), "SavePoint": (690, 40), "Weather": (1190, 40),
+                "Battery": (300, 40), "SavePoint": (740, 40), "Weather": (1250, 40),
                 "Shop": (300, 200), "Calendar": (1540, 250), "Timer": (1480, 600)}
+
+
+def screen_size():
+    """The main screen in real pixels (Rainmeter places skins in real pixels)."""
+    try:
+        ctypes.windll.user32.SetProcessDPIAware()
+    except (AttributeError, OSError):
+        pass
+    w, h = ctypes.windll.user32.GetSystemMetrics(0), ctypes.windll.user32.GetSystemMetrics(1)
+    return (w, h) if w > 0 and h > 0 else (1920, 1080)
+
+
+def widget_spot(name):
+    """Where a WinUx widget goes on this screen, kept fully on screen."""
+    spot = WIDGET_SPOTS.get(name)
+    if not spot:
+        return None
+    sw, sh = screen_size()
+    box = {"BoxW": 400, "BoxH": 150}
+    try:
+        for line in (WIDGETS_SRC / name / f"{name}.ini").read_text(encoding="utf-8").splitlines():
+            k, _, v = line.partition("=")
+            if k in box and v.strip().isdigit():
+                box[k] = int(v)
+    except OSError:
+        pass
+    w, h = box["BoxW"] + 20, box["BoxH"] + 20          # plus the border and corner stars
+    x = round(spot[0] * sw / 1920)
+    y = round(spot[1] * sh / 1080)
+    x = max(0, min(x, sw - w))
+    y = max(0, min(y, sh - h - 48))                    # stay above the taskbar
+    return x, y
 
 
 def rm_read():
@@ -698,7 +758,7 @@ def set_widget(config, on, file=None):
             rm_bang("!RefreshApp")
             time.sleep(5)
             rm_bang("!ActivateConfig", config, file)
-        spot = WIDGET_SPOTS.get(config.split("\\", 1)[-1]) if config.startswith("WinUx\\") else None
+        spot = widget_spot(config.split("\\", 1)[-1]) if config.startswith("WinUx\\") else None
         if first_time and spot:
             rm_bang("!Move", str(spot[0]), str(spot[1]), config)
     else:
