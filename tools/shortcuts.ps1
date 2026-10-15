@@ -85,4 +85,23 @@ if ($Mode -eq "admin" -and $jobs.folder -ne $null) {
         $log += "ok folder"
     } catch { $log += "fail folder: $_" }
 }
+if ($Mode -eq "admin" -and @($jobs.styler).Count -gt 0) {
+    # Windhawk's Taskbar Styler: the Start button and search icons (needs admin)
+    try {
+        $base = "SOFTWARE\Windhawk\Engine\Mods\windows-11-taskbar-styler"
+        $rk = [Microsoft.Win32.Registry]::LocalMachine.CreateSubKey("$base\Settings")
+        foreach ($e in @($jobs.styler)) {
+            $rk.SetValue("controlStyles[$($e.index)].target", [string]$e.target)
+            $n = 0
+            foreach ($st in @($e.styles)) { $rk.SetValue("controlStyles[$($e.index)].styles[$n]", [string]$st); $n++ }
+            $rk.SetValue("controlStyles[$($e.index)].styles[$n]", "")
+        }
+        $rk.Close()
+        # tell Windhawk the settings changed so the mod reloads them
+        $mk = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey($base, $true)
+        $mk.SetValue("SettingsChangeTime", [int][DateTimeOffset]::UtcNow.ToUnixTimeSeconds(), [Microsoft.Win32.RegistryValueKind]::DWord)
+        $mk.Close()
+        $log += "ok styler"
+    } catch { $log += "fail styler: $_" }
+}
 if ($Out) { $log | Set-Content -LiteralPath $Out -Encoding UTF8 }

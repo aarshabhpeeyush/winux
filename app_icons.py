@@ -292,6 +292,18 @@ def build_app_icons():
     return paths
 
 
+def taskbar_png(name, path, scale=2, canvas=48):
+    """A PNG with the icon centered on a bigger see-through square, so Taskbar
+    Styler can stretch it to the button size and it still looks icon-sized."""
+    w, h, d = px.render(draw(name), PALETTE, scale)
+    out = bytearray(canvas * canvas * 4)
+    ox, oy = (canvas - w) // 2, (canvas - h) // 2
+    for y in range(h):
+        out[((y + oy) * canvas + ox) * 4:((y + oy) * canvas + ox + w) * 4] = d[y * w * 4:(y + 1) * w * 4]
+    Path(path).write_bytes(px.png(canvas, canvas, bytes(out)))
+    return str(path)
+
+
 def preview_png(path, scale=6, gap=12):
     """One PNG with every icon side by side (for the panel / checking)."""
     imgs = [px.render(draw(n), PALETTE, scale) for n in ICONS]

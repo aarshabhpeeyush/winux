@@ -901,6 +901,87 @@ ADMIN_PLACES = ("public-desktop", "public-start")
 SHELL_ICONS = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Icons"
 
 
+STYLER = r"SOFTWARE\Windhawk\Engine\Mods\windows-11-taskbar-styler"
+STYLER_MARK = "// WinUx"            # first style of each entry WinUx adds (the mod skips // lines)
+START_BTN = ("Taskbar.ExperienceToggleButton#LaunchListButton[AutomationProperties.AutomationId=StartButton]"
+             " > Taskbar.TaskListButtonPanel")
+
+
+def styler_installed():
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, STYLER) as k:
+            return winreg.QueryValueEx(k, "Disabled")[0] == 0
+    except OSError:
+        return False
+
+
+def styler_entries():
+    """Taskbar Styler's style list as [(index, target, [styles])]."""
+    out = []
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, STYLER + r"\Settings") as k:
+            i = 0
+            while True:
+                try:
+                    target = winreg.QueryValueEx(k, f"controlStyles[{i}].target")[0]
+                except OSError:
+                    break
+                if not target:
+                    break
+                styles, j = [], 0
+                while True:
+                    try:
+                        st = winreg.QueryValueEx(k, f"controlStyles[{i}].styles[{j}]")[0]
+                    except OSError:
+                        break
+                    if not st:
+                        break
+                    styles.append(st)
+                    j += 1
+                out.append((i, target, styles))
+                i += 1
+    except OSError:
+        pass
+    return out
+
+
+def styler_plan(on):
+    """What to write so the Start button and search show WinUx icons (on) or not (off).
+    WinUx's entries are found by their first style, STYLER_MARK."""
+    if not WIN11 or not styler_installed():
+        return None
+    existing = styler_entries()
+    mine = [e for e in existing if e[2][:1] == [STYLER_MARK]]
+    win = Path(app_icons.taskbar_png("windows", app_icons.OUT / "taskbar-windows.png")).as_uri()
+    search = Path(app_icons.taskbar_png("search", app_icons.OUT / "taskbar-search.png")).as_uri()
+    # the wide search box keeps its icon on the left; the icon-only button centers it
+    align = "Left" if rget(SEARCH, "SearchboxTaskbarMode", 2) == 2 else "Center"
+    wanted = [
+        (f"{START_BTN} > Grid > Microsoft.UI.Xaml.Controls.AnimatedVisualPlayer#Icon, "
+         f"{START_BTN} > Microsoft.UI.Xaml.Controls.AnimatedVisualPlayer#Icon",
+         [STYLER_MARK, "Visibility=Collapsed"]),
+        (f"{START_BTN} > Grid > Border#BackgroundElement, {START_BTN} > Border#BackgroundElement",
+         [STYLER_MARK, f'Background:=<ImageBrush Stretch="Uniform" ImageSource="{win}" />']),
+        # the search icon (works for both the search box and the icon-only search button)
+        ("SearchUx.SearchUI.SearchButtonRootGrid#SearchBoxButtonRootPanel > Grid > "
+         "Microsoft.UI.Xaml.Controls.AnimatedVisualPlayer, "
+         "SearchUx.SearchUI.SearchButtonRootGrid#SearchBoxButtonRootPanel > "
+         "Microsoft.UI.Xaml.Controls.AnimatedVisualPlayer",
+         [STYLER_MARK, "Visibility=Collapsed"]),
+        ("SearchUx.SearchUI.SearchButtonRootGrid#SearchBoxButtonRootPanel > Grid > Border#BackgroundElement, "
+         "SearchUx.SearchUI.SearchButtonRootGrid#SearchBoxButtonRootPanel > Border#BackgroundElement",
+         [STYLER_MARK, f'Background:=<ImageBrush Stretch="Uniform" AlignmentX="{align}" ImageSource="{search}" />']),
+    ]
+    # reuse WinUx's old slots, add new ones after everything else
+    slots = [e[0] for e in mine] + list(range(len(existing), len(existing) + len(wanted)))
+    plan = []
+    for (target, styles), i in zip(wanted, slots):
+        plan.append({"index": i, "target": target if on else "//" + target.lstrip("/"), "styles": styles})
+    if not on:
+        plan = [{"index": e[0], "target": "//" + e[1].lstrip("/"), "styles": e[2]} for e in mine]
+    return plan
+
+
 def which_app(sc):
     """Which app a shortcut opens (or None). sc = one item from shortcuts.ps1 list."""
     exe = Path(sc.get("target") or "").name.lower()
@@ -1002,9 +1083,10 @@ def set_app_icons(pack):
 
     log = run_tool("set", {"shortcuts": user}) or [] if user else []
     admin_ok = True
+    styler = styler_plan(pack == "pixel")
     folder_done = back.get("folderApplied") == (folder or "")
-    if admin or not folder_done:
-        res = run_tool("admin", {"shortcuts": admin, "folder": folder or ""}, admin=True)
+    if admin or not folder_done or styler:
+        res = run_tool("admin", {"shortcuts": admin, "folder": folder or "", "styler": styler or []}, admin=True)
         admin_ok = res is not None
         log += res or []
     if pack == "default" and admin_ok:
