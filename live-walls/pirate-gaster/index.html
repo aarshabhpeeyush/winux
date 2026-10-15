@@ -1,0 +1,180 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Pirate Gaster</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  canvas { width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// Pirate Gaster: floating in the dark over a black sea, glowing teal.
+const PIXEL = 4;
+const opts = { glow: "#2ba7b8", speed: 1, glitch: true };
+
+const c = document.getElementById("c");
+const ctx = c.getContext("2d");
+let W, H, S, motes = [], stars = [];
+
+function resize() {
+  W = c.width = Math.ceil(innerWidth / PIXEL);
+  H = c.height = Math.ceil(innerHeight / PIXEL);
+  S = Math.max(1, Math.round(H / 270));          // sprite scale
+  stars = Array.from({ length: Math.round(W * H / 500) }, () => ({
+    x: Math.random() * W, y: Math.random() * H * 0.7, p: Math.random() * 6 }));
+  motes = [];
+}
+addEventListener("resize", resize);
+resize();
+
+const R = (x, y, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+function ellipse(cx, cy, rx, ry, col) {
+  ctx.fillStyle = col;
+  for (let y = -ry; y <= ry; y++) {
+    const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - (y * y) / (ry * ry))));
+    ctx.fillRect(Math.round(cx - half), Math.round(cy + y), half * 2 + 1, 1);
+  }
+}
+function poly(pts, col) {
+  ctx.fillStyle = col;
+  ctx.beginPath();
+  pts.forEach(([x, y], i) => (i ? ctx.lineTo(Math.round(x), Math.round(y)) : ctx.moveTo(Math.round(x), Math.round(y))));
+  ctx.closePath();
+  ctx.fill();
+}
+const hexRgb = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+
+// Gaster, drawn around (x, y) = center of the face. s = pixel size.
+function gaster(x, y, s, t) {
+  const glint = 0.75 + 0.25 * Math.sin(t * 3);
+
+  // coat + shoulders
+  poly([[x - 70 * s, H], [x - 58 * s, y + 52 * s], [x - 26 * s, y + 40 * s], [x + 26 * s, y + 40 * s],
+        [x + 58 * s, y + 52 * s], [x + 70 * s, H]], "#121a33");
+  poly([[x - 56 * s, y + 56 * s], [x - 26 * s, y + 44 * s], [x - 20 * s, y + 60 * s], [x - 50 * s, H]], "#1b2747");
+  poly([[x + 56 * s, y + 56 * s], [x + 26 * s, y + 44 * s], [x + 20 * s, y + 60 * s], [x + 50 * s, H]], "#1b2747");
+  // pale collar
+  ellipse(x, y + 42 * s, 30 * s, 9 * s, "#bfe3d0");
+  ellipse(x, y + 40 * s, 22 * s, 6 * s, "#7fb3a0");
+  R(x - 20 * s, y + 46 * s, 40 * s, 8 * s, "#a6d4bf");
+
+  // face (with soft shading on the edges)
+  ellipse(x, y, 30 * s, 36 * s, "#9fc7b4");
+  ellipse(x - 1 * s, y - 1 * s, 27 * s, 34 * s, "#e3f6e6");
+  ellipse(x - 4 * s, y - 6 * s, 16 * s, 20 * s, "#f4fff4");
+
+  // big round eyes
+  for (const ex of [-12, 12]) {
+    ellipse(x + ex * s, y - 4 * s, 10 * s, 12 * s, "#05070a");
+    ctx.globalAlpha = glint;
+    R(x + (ex + 1) * s, y - 4 * s, 3 * s, 3 * s, "#ffffff");
+    ctx.globalAlpha = 1;
+  }
+
+  // wide grin
+  ellipse(x, y + 14 * s, 18 * s, 9 * s, "#05070a");
+  R(x - 19 * s, y + 5 * s, 38 * s, 9 * s, "#e3f6e6");
+  R(x - 18 * s, y + 12 * s, 36 * s, 2 * s, "#05070a");
+
+  // the crack above his left eye
+  // (2 pixels thick, zig-zagging down from under the hat to the top of the eye)
+  ctx.fillStyle = "#05070a";
+  for (let i = 0; i < 15; i++) {
+    const zig = [0, 1, 1, 0, -1, -1, 0][i % 7];
+    ctx.fillRect(Math.round(x - (14 + zig) * s), Math.round(y - (30 - i) * s), 2 * s, s);
+  }
+  ctx.fillRect(Math.round(x - 17 * s), Math.round(y - 24 * s), 2 * s, s);   // little branch
+  ctx.fillRect(Math.round(x - 18 * s), Math.round(y - 23 * s), 1 * s, s);
+
+  // tricorne pirate hat
+  const hat = "#2a9fb0", hatLight = "#6fdde6", hatDark = "#135c69";
+  // rounded crown
+  ellipse(x, y - 46 * s, 30 * s, 20 * s, hatDark);
+  ellipse(x - 1 * s, y - 48 * s, 28 * s, 18 * s, hat);
+  ellipse(x - 9 * s, y - 56 * s, 11 * s, 5 * s, hatLight);
+  // brim: both sides curl up high, and a point dips down at the front (tricorne)
+  poly([[x - 50 * s, y - 50 * s], [x - 40 * s, y - 32 * s], [x - 18 * s, y - 26 * s], [x, y - 19 * s],
+        [x + 18 * s, y - 26 * s], [x + 40 * s, y - 32 * s], [x + 50 * s, y - 50 * s],
+        [x + 34 * s, y - 38 * s], [x, y - 33 * s], [x - 34 * s, y - 38 * s]], hatDark);
+  poly([[x - 47 * s, y - 48 * s], [x - 38 * s, y - 34 * s], [x - 17 * s, y - 28 * s], [x, y - 22 * s],
+        [x + 17 * s, y - 28 * s], [x + 38 * s, y - 34 * s], [x + 47 * s, y - 48 * s],
+        [x + 33 * s, y - 40 * s], [x, y - 36 * s], [x - 33 * s, y - 40 * s]], hat);
+  // light along the brim edge
+  poly([[x - 36 * s, y - 36 * s], [x, y - 31 * s], [x + 36 * s, y - 36 * s], [x, y - 28 * s]], hatLight);
+}
+
+let last = performance.now(), t = 0, glitchT = 0;
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000) * opts.speed;
+  last = now;
+  t += dt;
+  const [gr, gg, gb] = hexRgb(opts.glow);
+
+  R(0, 0, W, H, "#000");
+
+  for (const s of stars) {
+    ctx.globalAlpha = 0.15 + 0.3 * (0.5 + 0.5 * Math.sin(t * 1.2 + s.p));
+    R(s.x, s.y, 1, 1, "#9fd");
+  }
+  ctx.globalAlpha = 1;
+
+  const gx = Math.round(W * 0.5), gy = Math.round(H * 0.42 + Math.sin(t * 0.9) * 3 * S);
+
+  // teal glow behind him
+  const glow = ctx.createRadialGradient(gx, gy, 0, gx, gy, 110 * S);
+  glow.addColorStop(0, `rgba(${gr},${gg},${gb},0.35)`);
+  glow.addColorStop(1, `rgba(${gr},${gg},${gb},0)`);
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
+
+  gaster(gx, gy, S, t);
+
+  // black sea with teal wave tops
+  const seaY = Math.round(H * 0.84);
+  R(0, seaY, W, H - seaY, "#02090c");
+  for (let row = 0; row < 5; row++) {
+    const y = seaY + row * 5 * S;
+    ctx.globalAlpha = 0.6 - row * 0.1;
+    ctx.fillStyle = opts.glow;
+    for (let x = -((t * (8 + row * 4)) % 24); x < W; x += 24) {
+      ctx.fillRect(Math.round(x + row * 7), y, 8 * S, 1);
+      ctx.fillRect(Math.round(x + row * 7 + 2 * S), y - 1, 4 * S, 1);
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  // glowing motes drifting up
+  if (Math.random() < 0.4 * opts.speed) motes.push({ x: Math.random() * W, y: H, v: 4 + Math.random() * 10, p: Math.random() * 6 });
+  for (const m of motes) {
+    m.y -= m.v * dt;
+    ctx.globalAlpha = Math.max(0, m.y / H) * 0.8;
+    R(m.x + Math.sin(t + m.p) * 2, m.y, 1, 1, opts.glow);
+  }
+  motes = motes.filter((m) => m.y > 0);
+  ctx.globalAlpha = 1;
+
+  // now and then, reality glitches
+  if (opts.glitch) {
+    glitchT -= dt;
+    if (glitchT < -6 - Math.random() * 6) glitchT = 0.18;
+    if (glitchT > 0) {
+      for (let i = 0; i < 4; i++) {
+        const y = Math.floor(Math.random() * H), h = 2 + Math.floor(Math.random() * 6);
+        ctx.drawImage(c, 0, y, W, h, (Math.random() - 0.5) * 12, y, W, h);
+      }
+    }
+  }
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+function livelyPropertyListener(name, val) {
+  if (name in opts) opts[name] = val;
+}
+</script>
+</body>
+</html>

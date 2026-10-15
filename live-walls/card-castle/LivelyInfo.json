@@ -1,0 +1,19 @@
+{
+  "AppVersion": "2.2.1.0",
+  "Title": "Card Castle",
+  "Thumbnail": null,
+  "Preview": null,
+  "Desc": "Card-suit towers, floating suits, a checker floor and Lancer bopping by.",
+  "Author": "WinUx",
+  "License": "",
+  "Contact": "",
+  "Type": 1,
+  "FileName": "index.html",
+  "Arguments": null,
+  "IsAbsolutePath": false,
+  "Id": null,
+  "Tags": [
+    "winux"
+  ],
+  "Version": 0
+}

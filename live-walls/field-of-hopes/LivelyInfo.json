@@ -1,0 +1,17 @@
+{
+  "AppVersion": "2.2.1.0",
+  "Title": "Field of Hopes",
+  "Thumbnail": null,
+  "Preview": null,
+  "Desc": "Ralsei resting in a green field, with a small yellow flower. Made for WinUx.",
+  "Author": "WinUx",
+  "License": "",
+  "Contact": "",
+  "Type": 1,
+  "FileName": "index.html",
+  "Arguments": null,
+  "IsAbsolutePath": false,
+  "Id": null,
+  "Tags": ["winux"],
+  "Version": 0
+}

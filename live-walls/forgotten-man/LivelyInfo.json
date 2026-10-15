@@ -1,0 +1,20 @@
+{
+  "AppVersion": "2.2.1.0",
+  "Title": "Forgotten Man",
+  "Thumbnail": null,
+  "Preview": null,
+  "Desc": "A red tree, an egg, and a man you shouldn't forget. Plays his theme.",
+  "Author": "WinUx",
+  "License": "",
+  "Contact": "",
+  "Type": 1,
+  "FileName": "index.html",
+  "Arguments": null,
+  "IsAbsolutePath": false,
+  "Id": null,
+  "Tags": [
+    "winux",
+    "music"
+  ],
+  "Version": 0
+}

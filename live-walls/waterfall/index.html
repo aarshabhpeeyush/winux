@@ -1,0 +1,176 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Waterfall</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #040818; overflow: hidden; }
+  canvas { width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// Waterfall: a dark blue cave. Glowing echo flowers, a twinkling crystal
+// ceiling, waterfalls pouring into a shimmering pool, lights drifting up.
+const PIXEL = 4;
+const opts = { glow: "#3cc8ff", speed: 1 };
+
+const c = document.getElementById("c");
+const ctx = c.getContext("2d");
+let W, H, S, crystals = [], flowers = [], falls = [], motes = [], grass = [];
+
+const R = (x, y, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+function ellipse(cx, cy, rx, ry, col) {
+  ctx.fillStyle = col;
+  for (let y = -ry; y <= ry; y++) {
+    const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - (y * y) / (ry * ry))));
+    ctx.fillRect(Math.round(cx - half), Math.round(cy + y), half * 2 + 1, 1);
+  }
+}
+function poly(pts, col) {
+  ctx.fillStyle = col;
+  ctx.beginPath();
+  pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+  ctx.closePath();
+  ctx.fill();
+}
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+function resize() {
+  W = c.width = Math.ceil(innerWidth / PIXEL);
+  H = c.height = Math.ceil(innerHeight / PIXEL);
+  S = Math.max(1, Math.round(H / 270));
+  crystals = Array.from({ length: Math.round(W * H / 500) }, () => ({ x: rnd(0, W), y: rnd(0, H * 0.45), p: rnd(0, 6), big: Math.random() < 0.15 }));
+  falls = [0.18, 0.47, 0.8].map((f) => ({ x: W * f, w: rnd(10, 18) * S }));
+  flowers = [];
+  for (let x = rnd(6, 20); x < W; x += rnd(24, 50)) flowers.push({ x, p: rnd(0, 6), h: rnd(18, 32) * S });
+  grass = [];
+  for (let x = 0; x < W; x += rnd(2, 5)) grass.push({ x, h: rnd(6, 20) * S / 1.5, p: rnd(0, 6) });
+  motes = Array.from({ length: 60 }, () => newMote(true));
+}
+function newMote(anywhere) {
+  return { x: rnd(0, W), y: anywhere ? rnd(0, H) : H + 2, v: rnd(3, 9), p: rnd(0, 6) };
+}
+addEventListener("resize", resize);
+resize();
+
+function hexA(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
+// an echo flower: tall stem, four glowing petals, a soft pulsing halo
+function echoFlower(x, base, h, pulse) {
+  R(x, base - h, 1, h, "#1a5a6a");
+  R(x - 2, base - h * 0.45, 2, 1, "#1a5a6a");
+  const cy = base - h - 3 * S;
+  ctx.globalAlpha = 0.18 + 0.2 * pulse;
+  ellipse(x, cy, 11 * S, 11 * S, opts.glow);
+  ctx.globalAlpha = 1;
+  const r = 3 * S;
+  for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ellipse(x + dx * r, cy + dy * r, r, r, "#8ae8ff");
+  ellipse(x, cy, r * 0.8, r * 0.8, "#e8fcff");
+}
+
+let last = performance.now(), t = 0;
+function frame(now) {
+  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)) * opts.speed;
+  last = Math.max(last, now);
+  t += dt;
+
+  // cave
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, "#02040e");
+  bg.addColorStop(0.5, "#08143a");
+  bg.addColorStop(1, "#0a1a48");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // crystal ceiling: twinkling stars in the rock
+  for (const cr of crystals) {
+    const tw = 0.5 + 0.5 * Math.sin(t * 1.4 + cr.p);
+    ctx.globalAlpha = 0.25 + 0.75 * tw;
+    if (cr.big) {
+      R(cr.x - 1, cr.y, 3, 1, "#cdf4ff");
+      R(cr.x, cr.y - 1, 1, 3, "#cdf4ff");
+    } else R(cr.x, cr.y, 1, 1, "#8ad8ff");
+  }
+  ctx.globalAlpha = 1;
+  // jagged rock at the top
+  for (let x = 0; x < W; x += 6) {
+    const d = 3 + Math.abs(Math.sin(x * 0.11) * 6 + Math.sin(x * 0.037) * 5);
+    poly([[x, 0], [x + 6, 0], [x + 3, d * S / 1.5]], "#03060f");
+  }
+
+  // back cliffs
+  const poolY = Math.round(H * 0.78);
+  for (let x = 0; x < W; x++) {
+    const h = H * 0.3 + Math.sin(x * 0.02) * H * 0.06 + Math.sin(x * 0.07) * H * 0.02;
+    R(x, poolY - h, 1, h, "#0c1c4a");
+  }
+
+  // waterfalls with streaks running down
+  for (const f of falls) {
+    const top = 0;
+    ctx.globalAlpha = 0.85;
+    R(f.x, top, f.w, poolY - top, "#1e4a9a");
+    ctx.globalAlpha = 1;
+    for (let k = 0; k < f.w; k += 2) {
+      const len = 10 + ((k * 7) % 13);
+      for (let y = ((t * 70 + k * 23) % (len * 3)) - len * 3 + top; y < poolY; y += len * 3)
+        R(f.x + k, y, 1, len, "#7ac8ff");
+    }
+    // spray at the bottom
+    for (let k = 0; k < 6; k++) {
+      ctx.globalAlpha = 0.5;
+      ellipse(f.x + f.w / 2 + Math.sin(t * 5 + k) * f.w * 0.6, poolY - 1 - Math.abs(Math.sin(t * 4 + k * 2)) * 3 * S, 2 * S, 1 * S, "#cdeeff");
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // shimmering pool
+  R(0, poolY, W, H - poolY, "#06143a");
+  for (let y = poolY + 2; y < H; y += 3) {
+    for (let x = ((y * 13) % 17); x < W; x += 17) {
+      const sh = Math.sin(t * 2 + x * 0.1 + y * 0.3);
+      if (sh > 0.6) R(x, y, 4, 1, hexA(opts.glow, 0.5 * (sh - 0.6) / 0.4));
+    }
+  }
+  R(0, poolY, W, 1, "#3a7ad8");
+
+  // tall grass along the shore, swaying
+  const shoreY = poolY - 1;
+  for (const g of grass) {
+    const sway = Math.sin(t * 1.3 + g.p) * 2;
+    ctx.strokeStyle = "#0e3a5a";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(g.x, shoreY);
+    ctx.lineTo(g.x + sway, shoreY - g.h);
+    ctx.stroke();
+  }
+
+  // echo flowers, each pulsing on its own rhythm
+  for (const fl of flowers) echoFlower(fl.x, shoreY, fl.h, 0.5 + 0.5 * Math.sin(t * 1.8 + fl.p));
+
+  // little lights drifting up
+  for (const m of motes) {
+    m.y -= m.v * dt;
+    m.x += Math.sin(t + m.p) * 3 * dt;
+    if (m.y < -2) Object.assign(m, newMote(false));
+    ctx.globalAlpha = 0.4 + 0.4 * Math.sin(t * 3 + m.p);
+    R(m.x, m.y, 1, 1, opts.glow);
+  }
+  ctx.globalAlpha = 1;
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+function livelyPropertyListener(name, val) {
+  if (name in opts) opts[name] = val;
+}
+</script>
+</body>
+</html>

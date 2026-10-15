@@ -1,0 +1,20 @@
+{
+  "AppVersion": "2.2.1.0",
+  "Title": "Snowdin",
+  "Thumbnail": null,
+  "Preview": null,
+  "Desc": "A snowy night in Snowdin town with warm windows and string lights. Plays Snowdin Town.",
+  "Author": "WinUx",
+  "License": "",
+  "Contact": "",
+  "Type": 1,
+  "FileName": "index.html",
+  "Arguments": null,
+  "IsAbsolutePath": false,
+  "Id": null,
+  "Tags": [
+    "winux",
+    "music"
+  ],
+  "Version": 0
+}

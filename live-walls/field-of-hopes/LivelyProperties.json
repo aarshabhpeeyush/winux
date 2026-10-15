@@ -1,0 +1,5 @@
+{
+  "grass": { "type": "color", "value": "#2fbf71", "text": "Grass color" },
+  "speed": { "type": "slider", "value": 1, "min": 0.2, "max": 3, "step": 0.1, "text": "Speed" },
+  "fireflies": { "type": "checkbox", "value": true, "text": "Fireflies" }
+}

@@ -1,0 +1,17 @@
+{
+  "AppVersion": "2.2.1.0",
+  "Title": "Dark World",
+  "Thumbnail": null,
+  "Preview": null,
+  "Desc": "Pixel stars and a rising dark fountain. Made for WinUx.",
+  "Author": "WinUx",
+  "License": "",
+  "Contact": "",
+  "Type": 1,
+  "FileName": "index.html",
+  "Arguments": null,
+  "IsAbsolutePath": false,
+  "Id": null,
+  "Tags": ["winux"],
+  "Version": 0
+}

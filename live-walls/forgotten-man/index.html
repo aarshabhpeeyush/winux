@@ -1,0 +1,219 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Forgotten Man</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  canvas { width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
+  #music { position: fixed; width: 1px; height: 1px; left: -10px; top: -10px; border: 0; opacity: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// Forgotten Man: his room, as it looks in Deltarune Chapter 5. A stepped
+// purple floor in the dark, a crimson-and-magenta tree with twisted roots,
+// and Kris standing at the end of the path. He's hiding behind the tree.
+// He waves sometimes. This is the only WinUx wallpaper with music.
+const PIXEL = 4;
+const opts = { music: true, volume: 50, speed: 1 };
+const SONG = "k22qHUma93k";   // "Forgotten Man theme - Deltarune Chapter 5"
+
+const c = document.getElementById("c");
+const ctx = c.getContext("2d");
+let W, H, S, u, ox, oy, leaves = [];
+
+const R = (x, y, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+const rnd = (a, b) => a + Math.random() * (b - a);
+// The room is drawn in the reference picture's coordinates (556 x 448)
+// and scaled to fit the screen.
+const X = (x) => ox + x * u, Y = (y) => oy + y * u;
+const RR = (x, y, w, h, col) => R(X(x), Y(y), w * u, h * u, col);
+function bar(x, y, w, h, col) {               // a leaf clump: a rectangle with clipped corners
+  const k = Math.min(4, h / 3);
+  RR(x + k, y, w - 2 * k, h, col);
+  RR(x, y + k, w, h - 2 * k, col);
+}
+
+const FLOOR = "#5c2a5c", TRUNK = "#2a1438";
+// leaf clumps traced from the reference: [x, y, w, h, color, sway phase]
+const LEAVES = [
+  [222, 98, 42, 28, "#a8108a"], [208, 128, 72, 40, "#a8108a"], [258, 136, 32, 18, "#8a0c78"],
+  [338, 150, 34, 22, "#a8108a"], [362, 142, 36, 18, "#c4309e"], [306, 98, 32, 14, "#c4309e"],
+  [248, 80, 52, 20, "#e01c48"], [240, 92, 84, 30, "#e01c48"], [298, 76, 42, 14, "#e01c48"],
+  [324, 60, 38, 15, "#e8284e"], [330, 86, 46, 24, "#e01c48"], [282, 110, 122, 36, "#e01c48"],
+  [196, 122, 36, 13, "#e01c48"], [246, 156, 40, 22, "#e01c48"], [288, 166, 42, 22, "#e01c48"],
+  [282, 176, 30, 18, "#d01840"], [308, 100, 30, 12, "#c4309e"],
+].map((l, i) => [...l, i * 1.7]);
+
+function resize() {
+  W = c.width = Math.ceil(innerWidth / PIXEL);
+  H = c.height = Math.ceil(innerHeight / PIXEL);
+  S = Math.max(1, Math.round(H / 270));
+  u = H / 448;
+  ox = W / 2 - 278 * u;
+  oy = 0;
+  leaves = Array.from({ length: 24 }, () => newLeaf(true));
+}
+function newLeaf(anywhere) {
+  return { x: rnd(200, 400), y: anywhere ? rnd(80, 300) : rnd(110, 170), v: rnd(10, 22), p: rnd(0, 6) };
+}
+addEventListener("resize", resize);
+resize();
+
+// Kris from behind: dark messy hair, blue sweater with a pink stripe, dark legs.
+const KRIS = [
+  "...HHHHH...",
+  "..HHHHHHH..",
+  ".HHHHHHHHH.",
+  ".HHHHHHHHHH",
+  "HHHHHHHHHHH",
+  "HHHHHHHHHH.",
+  ".HHHHHHHH..",
+  ".SBBBBBBBS.",
+  "SBBBBBBBBBS",
+  "SBPPPPPPPBS",
+  "SBBBBBBBBBS",
+  ".SBBBBBBBS.",
+  "..SSSSSSS..",
+  "..LLL.LLL..",
+  "..LLL.LLL..",
+  "..WWW.WWW..",
+];
+function sprite(rows, x, y, px, pal) {
+  rows.forEach((row, j) => [...row].forEach((ch, i) => { if (pal[ch]) R(x + i * px, y + j * px, px, px, pal[ch]); }));
+}
+
+// a white-bordered text box, Deltarune style
+const LINES = ["* Hello.", "* Will you forget me?", "* ...I hope not.", "* Would you like an egg?", "* Let's meet again."];
+function textBox(text, shown) {
+  const bw = Math.min(W - 20, 240 * S), bh = 34 * S, bx = (W - bw) / 2, by = 6 * S;
+  R(bx, by, bw, bh, "#ffffff");
+  R(bx + 2 * S, by + 2 * S, bw - 4 * S, bh - 4 * S, "#000");
+  ctx.font = `${10 * S}px monospace`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(text.slice(0, shown), bx + 8 * S, by + 8 * S);
+}
+
+let last = performance.now(), t = 0, waveT = 6, wave = 0, line = -1, lineT = 3, shown = 0;
+function frame(now) {
+  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)) * opts.speed;
+  last = Math.max(last, now);
+  t += dt;
+
+  R(0, 0, W, H, "#000");
+
+  // the stepped purple floor: little top block, wide room, narrower step, long path
+  RR(195, 100, 32, 44, FLOOR);
+  RR(155, 142, 240, 120, FLOOR);
+  RR(195, 260, 160, 42, FLOOR);
+  RR(235, 300, 80, 160, FLOOR);
+
+  // a faint red glow under the tree, breathing
+  const g = ctx.createRadialGradient(X(300), Y(130), 0, X(300), Y(130), 120 * u);
+  g.addColorStop(0, `rgba(224,28,72,${0.12 + 0.05 * Math.sin(t * 0.8)})`);
+  g.addColorStop(1, "rgba(224,28,72,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // twisted trunk and roots
+  ctx.strokeStyle = TRUNK;
+  ctx.lineCap = "round";
+  const stroke = (w, pts) => {
+    ctx.lineWidth = Math.max(1, w * u);
+    ctx.beginPath();
+    pts.forEach(([x, y], i) => (i ? ctx.lineTo(X(x), Y(y)) : ctx.moveTo(X(x), Y(y))));
+    ctx.stroke();
+  };
+  stroke(14, [[300, 172], [296, 200], [290, 222], [288, 236]]);
+  stroke(6, [[290, 226], [276, 236], [262, 242], [252, 244]]);
+  stroke(5, [[292, 232], [282, 244]]);
+  stroke(5, [[294, 230], [304, 242], [318, 244]]);
+  stroke(4, [[298, 226], [314, 234], [326, 236]]);
+  stroke(6, [[300, 190], [322, 192], [344, 186], [360, 178]]);
+  stroke(4, [[330, 190], [340, 200]]);
+
+  // the man behind the trunk: only ever a hand, waving
+  waveT -= dt;
+  if (waveT <= 0 && wave <= 0) { wave = 3; waveT = rnd(14, 24); }
+  if (wave > 0) {
+    wave -= dt;
+    const out = Math.min(1, (3 - wave) * 3, wave * 3);
+    const hx = 306 + out * 10, hy = 196 + Math.sin(t * 9) * 3;
+    RR(303, hy + 3, out * 10, 5, "#1a1a1a");
+    RR(hx, hy, 7, 8, "#e8dcc8");
+    for (const k of [0, 2.5, 5]) RR(hx + k, hy - 4, 2, 4, "#e8dcc8");
+  }
+
+  // the crown: blocky clumps, gently swaying
+  for (const [x, y, w, h, col, p] of LEAVES) bar(x + Math.sin(t * 0.9 + p) * 1.5, y + Math.sin(t * 0.7 + p) * 1, w, h, col);
+
+  // red leaves drifting down onto the floor
+  for (const l of leaves) {
+    l.y += l.v * dt;
+    l.x += Math.sin(t * 1.5 + l.p) * 10 * dt;
+    if (l.y > 300) Object.assign(l, newLeaf(false));
+    RR(l.x, l.y, 4, 4, Math.sin(t * 4 + l.p) > 0 ? "#e01c48" : "#a8108a");
+  }
+
+  // Kris, standing at the end of the path, breathing
+  const kp = Math.max(1, Math.round(3.2 * u));
+  const breathe = Math.sin(t * 2) > 0.6 ? 1 : 0;
+  sprite(KRIS, X(278) - 5.5 * kp, Y(330) + breathe, kp,
+         { H: "#1c1c3c", S: "#0e0e22", B: "#3c6ad0", P: "#e070b0", L: "#24243c", W: "#e8e8f0" });
+
+  // he talks, now and then
+  lineT -= dt;
+  if (lineT <= 0) {
+    if (line < 0) { line = Math.floor(rnd(0, LINES.length)); shown = 0; lineT = 6; }
+    else { line = -1; lineT = rnd(10, 18); }
+  }
+  if (line >= 0) {
+    shown = Math.min(LINES[line].length, shown + dt * 18);
+    textBox(LINES[line], Math.floor(shown));
+  }
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// ---- music ----------------------------------------------------------------
+// If you drop your own copy of the song next to this file as music.mp3, that
+// plays. Otherwise WinUx streams it from YouTube (WinUx needs to be running).
+// The theme previews inside the WinUx panel stay silent.
+let audio = null, player = null;
+const isWallpaper = window.top === window;
+function startMusic() {
+  if (!isWallpaper || audio || player) return;
+  const a = new Audio("music.mp3");
+  a.loop = true;
+  a.volume = opts.volume / 100;
+  a.addEventListener("canplay", () => { audio = a; if (opts.music) a.play().catch(() => {}); }, { once: true });
+  a.addEventListener("error", () => {
+    player = document.createElement("iframe");
+    player.id = "music";
+    player.allow = "autoplay";
+    player.src = `http://127.0.0.1:7777/music?v=${SONG}&vol=${opts.volume}&on=${opts.music ? 1 : 0}`;
+    document.body.appendChild(player);
+  }, { once: true });
+  a.load();
+}
+function updateMusic() {
+  if (audio) {
+    audio.volume = opts.volume / 100;
+    if (opts.music) audio.play().catch(() => {}); else audio.pause();
+  }
+  if (player) player.contentWindow.postMessage({ winuxMusic: true, on: opts.music, vol: opts.volume }, "*");
+}
+startMusic();
+
+function livelyPropertyListener(name, val) {
+  if (name in opts) opts[name] = val;
+  if (name === "music" || name === "volume") updateMusic();
+}
+</script>
+</body>
+</html>

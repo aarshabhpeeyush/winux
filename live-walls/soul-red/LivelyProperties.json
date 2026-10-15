@@ -1,0 +1,6 @@
+{
+  "soul": { "type": "color", "value": "#ff1a1a", "text": "Soul color" },
+  "speed": { "type": "slider", "value": 1, "min": 0.2, "max": 3, "step": 0.1, "text": "Game speed" },
+  "bullets": { "type": "slider", "value": 1, "min": 0.3, "max": 3, "step": 0.1, "text": "Difficulty" },
+  "flowey": { "type": "checkbox", "value": true, "text": "Flowey" }
+}

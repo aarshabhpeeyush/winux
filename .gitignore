@@ -1,0 +1,22 @@
+# Things WinUx makes on each PC - never share these
+backups/
+generated/
+themes/*
+!themes/.gitkeep
+art-inbox/*
+!art-inbox/.gitkeep
+wallpapers/*
+!wallpapers/.gitkeep
+.pythonw
+__pycache__/
+*.pyc
+
+# your own music files for music themes
+live-walls/*/music.mp3
+
+# your own videos / GIFs added in LIVE WALLS
+live-walls/*.mp4
+live-walls/*.webm
+live-walls/*.mov
+live-walls/*.mkv
+live-walls/*.gif

@@ -1,0 +1,161 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Card Castle</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #1a0a2e; overflow: hidden; }
+  canvas { width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// Card Castle: card-suit towers, floating suits, a checkered floor,
+// and Lancer bopping across every so often.
+const PIXEL = 4;
+const opts = { speed: 1, lancer: true };
+
+const c = document.getElementById("c");
+const ctx = c.getContext("2d");
+let W, H, S, suits = [], towers = [], stars = [];
+
+const R = (x, y, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+const rnd = (a, b) => a + Math.random() * (b - a);
+function sprite(rows, x, y, s, pal) {
+  rows.forEach((row, j) => [...row].forEach((ch, i) => {
+    const col = pal[ch];
+    if (col) R(x + i * s, y + j * s, s, s, col);
+  }));
+}
+
+const SUIT = {
+  heart:   ["0110110", "1111111", "1111111", "0111110", "0011100", "0001000"],
+  diamond: ["0001000", "0011100", "0111110", "1111111", "0111110", "0011100", "0001000"],
+  spade:   ["0001000", "0011100", "0111110", "1111111", "1111111", "1101011", "0001000", "0011100"],
+  club:    ["0011100", "0011100", "1101011", "1111111", "1101011", "0001000", "0011100"],
+};
+const SUIT_COLOR = { heart: "#e8304a", diamond: "#e8304a", spade: "#0a0010", club: "#0a0010" };
+const NAMES = Object.keys(SUIT);
+
+// Lancer: spade-shaped head, white eyes, big grin, little blue body.
+const LANCER = [
+  "....K....",
+  "...KKK...",
+  "..KKKKK..",
+  ".KKKKKKK.",
+  "KKWKKKWKK",
+  "KKKKKKKKK",
+  "KWWWWWWWK",
+  ".KKWWWKK.",
+  "...KKK...",
+  "..BBBBB..",
+  ".BBBBBBB.",
+  "..BBBBB..",
+  "..K...K..",
+];
+
+function resize() {
+  W = c.width = Math.ceil(innerWidth / PIXEL);
+  H = c.height = Math.ceil(innerHeight / PIXEL);
+  S = Math.max(1, Math.round(H / 270));
+  stars = Array.from({ length: Math.round(W * H / 700) }, () => ({ x: rnd(0, W), y: rnd(0, H * 0.5), p: rnd(0, 6) }));
+  suits = Array.from({ length: 22 }, () => newSuit(true));
+  towers = [];
+  let x = rnd(-10, 0);
+  while (x < W) {
+    const w = Math.round(rnd(22, 40)), h = Math.round(H * rnd(0.28, 0.5));
+    towers.push({ x, w, h, suit: NAMES[Math.floor(Math.random() * 4)] });
+    x += w + Math.round(rnd(4, 18));
+  }
+}
+function newSuit(anywhere) {
+  return { x: rnd(0, W), y: anywhere ? rnd(0, H) : H + 10, v: rnd(4, 12), p: rnd(0, 6),
+           name: NAMES[Math.floor(Math.random() * 4)], s: Math.random() < 0.3 ? 2 : 1 };
+}
+addEventListener("resize", resize);
+resize();
+
+let last = performance.now(), t = 0, lancer = null, lancerT = 6;
+function frame(now) {
+  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)) * opts.speed;
+  last = Math.max(last, now);
+  t += dt;
+
+  // purple night sky
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, "#12061f");
+  sky.addColorStop(0.65, "#3a1052");
+  sky.addColorStop(1, "#5a1a6a");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
+  for (const s of stars) {
+    ctx.globalAlpha = 0.2 + 0.4 * (0.5 + 0.5 * Math.sin(t * 1.2 + s.p));
+    R(s.x, s.y, 1, 1, "#f0d8ff");
+  }
+  ctx.globalAlpha = 1;
+
+  // castle towers, each topped with a card suit
+  const floorY = Math.round(H * 0.7);
+  for (const tw of towers) {
+    const top = floorY - tw.h;
+    R(tw.x, top, tw.w, tw.h, "#24093a");
+    for (let bx = tw.x; bx < tw.x + tw.w; bx += 6) R(bx, top - 4, 3, 4, "#24093a");   // battlements
+    for (let wy = top + 8; wy < floorY - 8; wy += 14) {
+      const lit = Math.sin(t * 0.6 + wy + tw.x) > -0.3;
+      R(tw.x + tw.w / 2 - 2, wy, 4, 6, lit ? "#ff5a7a" : "#40102a");
+    }
+    sprite(SUIT[tw.suit], tw.x + tw.w / 2 - 7, top - 22, 2, { 1: SUIT_COLOR[tw.suit] === "#0a0010" ? "#120420" : "#c82040" });
+  }
+
+  // red and black checker floor, in perspective
+  for (let row = 0; row < 14; row++) {
+    const y0 = floorY + Math.pow(row / 14, 1.6) * (H - floorY), y1 = floorY + Math.pow((row + 1) / 14, 1.6) * (H - floorY);
+    const scale = 0.4 + row / 14;
+    const tw = 24 * scale;
+    const off = (t * 6 * scale) % (tw * 2);
+    for (let x = -tw * 2 + off - ((W / 2) % tw); x < W + tw; x += tw) {
+      const dark = (Math.floor((x - off) / tw) + row) % 2 === 0;
+      R(x, y0, tw + 1, y1 - y0 + 1, dark ? "#120008" : "#7a1232");
+    }
+  }
+  const fade = ctx.createLinearGradient(0, floorY, 0, floorY + 12);
+  fade.addColorStop(0, "rgba(58,16,82,0.9)");
+  fade.addColorStop(1, "rgba(58,16,82,0)");
+  ctx.fillStyle = fade;
+  ctx.fillRect(0, floorY, W, 12);
+
+  // floating card suits
+  for (const s of suits) {
+    s.y -= s.v * dt;
+    s.x += Math.sin(t * 0.8 + s.p) * 4 * dt;
+    if (s.y < -20) Object.assign(s, newSuit(false));
+    const bob = Math.sin(t * 2 + s.p) > 0 ? 0 : 1;
+    const pal = { 1: SUIT_COLOR[s.name] };
+    // a white outline so the black suits still show on the dark sky
+    for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) sprite(SUIT[s.name], s.x + ox, s.y + oy + bob, s.s, { 1: "#f0d8ff" });
+    sprite(SUIT[s.name], s.x, s.y + bob, s.s, pal);
+  }
+
+  // Lancer bops across the floor now and then
+  if (opts.lancer) {
+    lancerT -= dt;
+    if (!lancer && lancerT <= 0) lancer = { x: -20, dir: 1 };
+    if (lancer) {
+      lancer.x += 30 * dt;
+      const hop = Math.abs(Math.sin(t * 8)) * 6;
+      sprite(LANCER, lancer.x, floorY + 18 - 13 * 2 - hop, 2, { K: "#0e0e2a", W: "#ffffff", B: "#3a5ad8" });
+      if (lancer.x > W + 20) { lancer = null; lancerT = rnd(15, 30); }
+    }
+  }
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+function livelyPropertyListener(name, val) {
+  if (name in opts) opts[name] = val;
+}
+</script>
+</body>
+</html>

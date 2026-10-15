@@ -1,0 +1,209 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Neon Skyline</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #07061a; overflow: hidden; }
+  canvas { width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// Neon Skyline: a pixel night city that slowly pans, with blinking windows,
+// pulsing neon signs, flying cars and optional rain.
+const PIXEL = 4;
+const opts = { neon1: "#ff3ea5", neon2: "#5b8cff", speed: 1, rain: false };
+
+const c = document.getElementById("c");
+const ctx = c.getContext("2d");
+let W, H, layers = [], stars = [], cars = [], drops = [], scroll = 0;
+
+const rnd = (a, b) => a + Math.random() * (b - a);
+const WINDOW_COLORS = ["#ffd38a", "#ffd38a", "#ffe9b8", "#5be0ff", "#ff7cc4"];
+
+function makeLayer(depth) {
+  // depth 0 = far away (dim, small), 2 = close (dark, tall)
+  const lw = W * 2;
+  const can = document.createElement("canvas");
+  can.width = lw;
+  can.height = H;
+  const g = can.getContext("2d");
+  const body = ["#2a2263", "#18123f", "#0b0920"][depth];
+  const dim = [0.45, 0.7, 1][depth];
+  const windows = [], neons = [];
+
+  const drawRect = (x, y, w, h) => {
+    g.fillRect(x, y, w, h);
+    if (x + w > lw) g.fillRect(x - lw, y, w, h); // wrap so the loop is seamless
+  };
+
+  let x = 0;
+  while (x < lw) {
+    const bw = Math.round(rnd(10, 18 + depth * 8));
+    const bh = Math.round(H * rnd(0.18 + depth * 0.12, 0.42 + depth * 0.14));
+    const top = H - bh;
+    g.fillStyle = body;
+    drawRect(x, top, bw, bh);
+    if (Math.random() < 0.3) drawRect(x + Math.floor(bw / 2), top - Math.round(rnd(3, 9)), 1, 9); // antenna
+    if (Math.random() < 0.25) { g.fillStyle = body; drawRect(x + 2, top - 3, bw - 4, 3); }   // roof step
+
+    for (let wy = top + 3; wy < H - 2; wy += 3) {
+      for (let wx = x + 2; wx < x + bw - 2; wx += 3) {
+        if (Math.random() < 0.38) {
+          const w = { x: wx, y: wy, on: Math.random() < 0.65,
+                      col: WINDOW_COLORS[Math.floor(Math.random() * WINDOW_COLORS.length)] };
+          windows.push(w);
+          paintWindow(g, w, body, dim, lw);
+        }
+      }
+    }
+    if (Math.random() < 0.35 + depth * 0.1) {
+      neons.push({ x: x + (Math.random() < 0.5 ? 0 : bw - 1), y: top + 4,
+                   h: Math.min(bh - 8, Math.round(rnd(12, 34))), which: Math.random() < 0.5 ? 1 : 2,
+                   phase: rnd(0, 6) });
+    }
+    x += bw + Math.round(rnd(0, 4));
+  }
+  return { can, g, windows, neons, depth, body, dim, lw, speed: [0.6, 1.4, 2.6][depth] };
+}
+
+function paintWindow(g, w, body, dim, lw) {
+  g.globalAlpha = 1;
+  g.fillStyle = body;
+  g.fillRect(w.x, w.y, 2, 2);
+  if (w.on) {
+    g.globalAlpha = dim;
+    g.fillStyle = w.col;
+    g.fillRect(w.x, w.y, 2, 2);
+  }
+  if (w.x + 2 > lw) paintWindow(g, { ...w, x: w.x - lw }, body, dim, lw);
+  g.globalAlpha = 1;
+}
+
+function resize() {
+  W = c.width = Math.ceil(innerWidth / PIXEL);
+  H = c.height = Math.ceil(innerHeight / PIXEL);
+  layers = [makeLayer(0), makeLayer(1), makeLayer(2)];
+  stars = Array.from({ length: Math.round(W * H / 400) }, () => ({
+    x: Math.random() * W, y: Math.random() * H * 0.55, p: rnd(0, 6) }));
+  drops = Array.from({ length: Math.round(W / 2) }, () => ({ x: rnd(0, W), y: rnd(0, H), v: rnd(90, 140) }));
+}
+addEventListener("resize", resize);
+resize();
+
+let last = performance.now(), t = 0;
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000) * opts.speed;
+  last = now;
+  t += dt;
+  scroll += dt;
+
+  // sky
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, "#07061a");
+  sky.addColorStop(0.55, "#1b1650");
+  sky.addColorStop(0.85, "#3a1d5c");
+  sky.addColorStop(1, "#5a2160");
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = "#fff";
+  for (const s of stars) {
+    ctx.globalAlpha = 0.25 + 0.35 * (0.5 + 0.5 * Math.sin(t * 1.5 + s.p));
+    ctx.fillRect(Math.round(s.x), Math.round(s.y), 1, 1);
+  }
+
+  // moon
+  ctx.globalAlpha = 0.9;
+  ctx.fillStyle = "#f3eefc";
+  const mx = Math.round(W * 0.78), my = Math.round(H * 0.16), mr = Math.max(6, Math.round(H * 0.05));
+  for (let y = -mr; y <= mr; y++) {
+    const half = Math.round(Math.sqrt(mr * mr - y * y));
+    ctx.fillRect(mx - half, my + y, half * 2, 1);
+  }
+  ctx.globalAlpha = 1;
+
+  for (const L of layers) {
+    // a few windows switch on/off each frame
+    for (let i = 0; i < 2 + L.depth; i++) {
+      const w = L.windows[Math.floor(Math.random() * L.windows.length)];
+      if (w && Math.random() < 0.5 * opts.speed) { w.on = !w.on; paintWindow(L.g, w, L.body, L.dim, L.lw); }
+    }
+    const off = -Math.round((scroll * L.speed) % L.lw);
+    ctx.drawImage(L.can, off, 0);
+    ctx.drawImage(L.can, off + L.lw, 0);
+
+    // neon signs pulse
+    for (const n of L.neons) {
+      const pulse = 0.55 + 0.45 * Math.sin(t * 2.2 + n.phase);
+      ctx.fillStyle = n.which === 1 ? opts.neon1 : opts.neon2;
+      for (const base of [off, off + L.lw]) {
+        const x = n.x + base;
+        if (x < -2 || x > W + 2) continue;
+        ctx.globalAlpha = pulse * L.dim;
+        ctx.fillRect(x, n.y, 1, n.h);
+        ctx.globalAlpha = pulse * 0.25 * L.dim;
+        ctx.fillRect(x - 1, n.y, 3, n.h);
+      }
+    }
+    ctx.globalAlpha = 1;
+
+    // haze between layers
+    if (L.depth < 2) {
+      const fog = ctx.createLinearGradient(0, H * 0.55, 0, H);
+      fog.addColorStop(0, "rgba(90,33,96,0)");
+      fog.addColorStop(1, "rgba(90,33,96,0.35)");
+      ctx.fillStyle = fog;
+      ctx.fillRect(0, H * 0.55, W, H * 0.45);
+    }
+
+    // flying cars travel between the far and near buildings
+    if (L.depth === 1) {
+      if (Math.random() < 0.006 * opts.speed) {
+        const dir = Math.random() < 0.5 ? 1 : -1;
+        cars.push({ x: dir > 0 ? -6 : W + 6, y: Math.round(rnd(H * 0.3, H * 0.6)), v: dir * rnd(25, 45),
+                    col: Math.random() < 0.5 ? opts.neon1 : opts.neon2 });
+      }
+      for (const car of cars) {
+        car.x += car.v * dt;
+        const x = Math.round(car.x), y = car.y, back = car.v > 0 ? -1 : 1;
+        for (let i = 1; i < 10; i++) {
+          ctx.globalAlpha = 0.45 * (1 - i / 10);
+          ctx.fillStyle = car.col;
+          ctx.fillRect(x + back * (i + 1), y, 1, 1);
+        }
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "#0b0920";
+        ctx.fillRect(x - 1, y - 1, 3, 2);
+        ctx.fillStyle = "#fff6c9";
+        ctx.fillRect(x + (car.v > 0 ? 2 : -2), y, 1, 1);
+      }
+      cars = cars.filter((car) => car.x > -20 && car.x < W + 20);
+    }
+  }
+
+  if (opts.rain) {
+    ctx.fillStyle = "#9fb6ff";
+    for (const d of drops) {
+      d.y += d.v * dt;
+      d.x -= d.v * 0.15 * dt;
+      if (d.y > H) { d.y = -4; d.x = rnd(0, W + 20); }
+      ctx.globalAlpha = 0.35;
+      ctx.fillRect(Math.round(d.x), Math.round(d.y), 1, 3);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+function livelyPropertyListener(name, val) {
+  if (name in opts) opts[name] = val;
+}
+</script>
+</body>
+</html>

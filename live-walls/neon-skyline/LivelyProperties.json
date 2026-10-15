@@ -1,0 +1,6 @@
+{
+  "neon1": { "type": "color", "value": "#ff3ea5", "text": "Neon color 1" },
+  "neon2": { "type": "color", "value": "#5b8cff", "text": "Neon color 2" },
+  "speed": { "type": "slider", "value": 1, "min": 0.2, "max": 3, "step": 0.1, "text": "Speed" },
+  "rain": { "type": "checkbox", "value": false, "text": "Rain" }
+}

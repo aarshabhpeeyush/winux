@@ -1,0 +1,169 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Judgment Hall</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #2a1a08; overflow: hidden; }
+  canvas { width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// Judgment Hall: golden arched windows, pillars, beams of light, dust in the
+// air, a checker floor, and Sans waiting in the middle. His eye flashes blue.
+const PIXEL = 4;
+const opts = { sans: true, speed: 1 };
+
+const c = document.getElementById("c");
+const ctx = c.getContext("2d");
+let W, H, S, dust = [];
+
+const R = (x, y, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+function ellipse(cx, cy, rx, ry, col) {
+  ctx.fillStyle = col;
+  for (let y = -ry; y <= ry; y++) {
+    const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - (y * y) / (ry * ry))));
+    ctx.fillRect(Math.round(cx - half), Math.round(cy + y), half * 2 + 1, 1);
+  }
+}
+function poly(pts, col) {
+  ctx.fillStyle = col;
+  ctx.beginPath();
+  pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+  ctx.closePath();
+  ctx.fill();
+}
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+function resize() {
+  W = c.width = Math.ceil(innerWidth / PIXEL);
+  H = c.height = Math.ceil(innerHeight / PIXEL);
+  S = Math.max(1, Math.round(H / 270));
+  dust = Array.from({ length: 120 }, () => ({ x: rnd(0, W), y: rnd(0, H), v: rnd(1, 4), p: rnd(0, 6) }));
+}
+addEventListener("resize", resize);
+resize();
+
+// Sans as a dark silhouette: round head, hood, hands in pockets, slippers.
+// Every few seconds his left eye lights up blue.
+function sans(cx, floorY, t, eye) {
+  const s = S * 1.3;
+  const breathe = Math.round(Math.sin(t * 1.5) * 0.6 * s);
+  const col = "#140c04";
+  R(cx - 9 * s, floorY - 3 * s, 7 * s, 3 * s, col);           // slippers
+  R(cx + 2 * s, floorY - 3 * s, 7 * s, 3 * s, col);
+  R(cx - 7 * s, floorY - 14 * s, 5 * s, 11 * s, col);          // legs (shorts)
+  R(cx + 2 * s, floorY - 14 * s, 5 * s, 11 * s, col);
+  const top = floorY - 36 * s + breathe;
+  ellipse(cx, top + 12 * s, 15 * s, 12 * s, col);               // jacket body
+  R(cx - 13 * s, top + 12 * s, 26 * s, 12 * s - breathe, col);
+  ellipse(cx, top + 2 * s, 14 * s, 4 * s, col);                 // hood around the neck
+  ellipse(cx, top - 8 * s, 11 * s, 10 * s, col);                // skull
+  // eye sockets: dark, with tiny white pupils... or the blue eye
+  for (const side of [-1, 1]) {
+    const ex = cx + side * 5 * s, ey = top - 9 * s;
+    ellipse(ex, ey, 2.5 * s, 2.5 * s, "#000");
+    if (side === -1 && eye > 0) {
+      ctx.globalAlpha = 0.5 * eye;
+      ellipse(ex, ey, 3.5 * s, 3.5 * s, "#2aa8ff");
+      ctx.globalAlpha = 1;
+      ellipse(ex, ey, 1.6 * s, 1.6 * s, "#7ae0ff");
+      R(ex - 0.5 * s, ey - 0.5 * s, s, s, "#ffffff");
+      // a little flame trailing up from the eye
+      R(ex + 1 * s, ey - 3 * s - Math.abs(Math.sin(t * 20)) * s, s, 2 * s, "#2aa8ff");
+    } else if (eye <= 0) {
+      R(ex - 0.5 * s, ey - 0.5 * s, s, s, "#f0e8d8");
+    }
+  }
+  R(cx - 6 * s, top - 3 * s, 12 * s, 1 * s, "#000");             // grin
+  for (let k = -5; k <= 5; k += 2) R(cx + k * s, top - 4 * s, 1, 2 * s, "#000");
+}
+
+let last = performance.now(), t = 0;
+function frame(now) {
+  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)) * opts.speed;
+  last = Math.max(last, now);
+  t += dt;
+
+  // golden wall
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, "#c88a2a");
+  bg.addColorStop(0.7, "#e8b04a");
+  bg.addColorStop(1, "#a06a1a");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  const floorY = Math.round(H * 0.72);
+  // tall arched windows between pillars
+  const n = Math.max(4, Math.round(W / 90));
+  const span = W / n;
+  for (let k = 0; k < n; k++) {
+    const x = k * span + span * 0.25, w = span * 0.5, top = H * 0.12, bot = floorY - H * 0.12;
+    R(x - 2 * S, top - 2 * S, w + 4 * S, bot - top + 4 * S, "#8a5a18");
+    R(x, top, w, bot - top, "#fff2c8");
+    ellipse(x + w / 2, top, w / 2 + 2 * S, w / 2 + 2 * S, "#8a5a18");
+    ellipse(x + w / 2, top, w / 2, w / 2, "#fff2c8");
+    R(x - 2 * S, top, w + 4 * S, 2, "#fff2c8");
+    // window cross bars (the delta-rune-ish mullions)
+    R(x + w / 2 - 1, top - w / 2, 2, bot - top + w / 2, "#8a5a18");
+    R(x, top + (bot - top) * 0.4, w, 2, "#8a5a18");
+  }
+  // pillars in front of the walls
+  for (let k = 0; k <= n; k++) {
+    const x = k * span - 7 * S;
+    R(x, 0, 14 * S, floorY, "#b07a28");
+    R(x + 2 * S, 0, 3 * S, floorY, "#d8a048");
+    R(x + 10 * S, 0, 2 * S, floorY, "#8a5a18");
+    R(x - 2 * S, floorY - 6 * S, 18 * S, 6 * S, "#8a5a18");
+  }
+
+  // checker floor, flat and even like in the game
+  const tile = 16 * S;
+  for (let y = floorY, row = 0; y < H; y += tile, row++)
+    for (let i = -Math.ceil(W / tile / 2) - 1; i <= Math.ceil(W / tile / 2); i++)
+      R(W / 2 + i * tile, y, tile, tile, ((i + row) % 2 + 2) % 2 ? "#d8aa58" : "#a87a30");
+
+  // light beams falling from each window across the floor
+  ctx.globalCompositeOperation = "lighter";
+  for (let k = 0; k < n; k++) {
+    const x = k * span + span * 0.25, w = span * 0.5;
+    const a = 0.1 + 0.04 * Math.sin(t * 0.7 + k);
+    const g = ctx.createLinearGradient(0, H * 0.15, 0, H);
+    g.addColorStop(0, `rgba(255,240,190,${a})`);
+    g.addColorStop(1, "rgba(255,240,190,0)");
+    poly([[x, H * 0.15], [x + w, H * 0.15], [x + w + span * 0.35, H], [x + span * 0.35, H]], g);
+  }
+  ctx.globalCompositeOperation = "source-over";
+
+  // floating dust motes, glinting in the beams
+  for (const d of dust) {
+    d.y -= d.v * dt;
+    d.x += Math.sin(t * 0.5 + d.p) * 2 * dt;
+    if (d.y < 0) { d.y = H; d.x = rnd(0, W); }
+    ctx.globalAlpha = 0.3 + 0.5 * (0.5 + 0.5 * Math.sin(t * 2 + d.p));
+    R(d.x, d.y, 1, 1, "#fff8e0");
+  }
+  ctx.globalAlpha = 1;
+
+  // Sans, standing in the middle of the hall
+  if (opts.sans) {
+    const cyc = t % 8;                          // the eye flashes for ~1.5s every 8s
+    const eye = cyc > 6.5 ? Math.min(1, (cyc - 6.5) * 4, (8 - cyc) * 4) : 0;
+    ctx.globalAlpha = 0.25;
+    ellipse(W / 2, floorY + 18 * S, 22 * S, 3 * S, "#3a2008");
+    ctx.globalAlpha = 1;
+    sans(W / 2, floorY + 18 * S, t, eye);
+  }
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+function livelyPropertyListener(name, val) {
+  if (name in opts) opts[name] = val;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,231 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>TV World</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0410; overflow: hidden; }
+  canvas { width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// TV World: Tenna's studio. Sweeping spotlights, red curtains,
+// blinking marquee bulbs, an audience, and a channel change now and then.
+const PIXEL = 4;
+const opts = { speed: 1, static: true };
+
+const c = document.getElementById("c");
+const ctx = c.getContext("2d");
+let W, H, S, heads = [];
+
+const R = (x, y, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+function ellipse(cx, cy, rx, ry, col) {
+  ctx.fillStyle = col;
+  for (let y = -ry; y <= ry; y++) {
+    const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - (y * y) / (ry * ry))));
+    ctx.fillRect(Math.round(cx - half), Math.round(cy + y), half * 2 + 1, 1);
+  }
+}
+function poly(pts, col) {
+  ctx.fillStyle = col;
+  ctx.beginPath();
+  pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+  ctx.closePath();
+  ctx.fill();
+}
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+function resize() {
+  W = c.width = Math.ceil(innerWidth / PIXEL);
+  H = c.height = Math.ceil(innerHeight / PIXEL);
+  S = Math.max(1, Math.round(H / 270));
+  heads = [];
+  for (let row = 0; row < 2; row++)
+    for (let x = rnd(0, 8); x < W; x += rnd(12, 18) * S)
+      heads.push({ x, row, p: rnd(0, 6), col: ["#1a0a24", "#200c2c", "#160820"][Math.floor(rnd(0, 3))] });
+}
+addEventListener("resize", resize);
+resize();
+
+// Tenna, as a pixel sprite traced from the user's reference: white TV head
+// with lavender swirls and antenna knobs, a big white fist pointing at you,
+// red tailcoat, yellow sash, gold buckle, microphone, black trousers, yellow shoes.
+const TENNA = [
+  ".............olo..olo...o...........",
+  ".............ooo..ooo..olo..........",
+  "............oooooooooooooooo........",
+  "...........ollllllllllllllllo.......",
+  "..........ollllllllllllllllllo......",
+  "..........ollwwwwwwwwwwwwwwllo......",
+  "..........ollwlllllllwwwwwwllo......",
+  "..........ollwlwwwwwwllvvwwllo......",
+  "..........ollwlwwwwwwvvvvwwllo......",
+  "..........ollwlllllvvwvwwwwllo......",
+  "........o.ollwlwwwwwvvwwwwwllo......",
+  "....oooowoollwlwwwwwwwwwwwwllmo.....",
+  "...ovwwvwwvllwwwwwwwwwwwwwwllmo.....",
+  "..owvwwvwwvllllllllllllllllllmo.....",
+  "..owvwwvwwvwllllllllllllllllmooooo..",
+  ".owwvwwvwwvwwwwdrwrrrrrrwlwmwlwwwwo.",
+  ".owwwwwwwwwwwwwdrryyrrrrwlwlwlwwwwwo",
+  ".owwwwwwwwwwwwwdrrryyrrrwlwlwlwwwwwo",
+  "..olllllllllllldrrryyrrroooooooowvo.",
+  "..olllllllllllldrrrryyrro.......oo..",
+  "...oolllllllooddrrrryyrro...........",
+  ".....ooolooo.oddrrrrryyro...........",
+  "........o....oddrrgygyyro...........",
+  ".............oddrrgggrrro...........",
+  ".............oddrrrrrrrro...........",
+  "............oddkkkkkkkko............",
+  "...........oddokkkkkkkko............",
+  "...........oddokkkkkkkko............",
+  "..........oddookkpoopkko............",
+  ".........oddo.okkpoopkko............",
+  ".........oddo.okkpoopkko............",
+  "........oddo..okkpoopkko............",
+  ".........oo...okkpoopkko............",
+  ".............okkpo.opkko............",
+  ".............okkpo..opkko...........",
+  ".............okkpo..opkko...........",
+  ".............okkpo..opkko...........",
+  ".............okkpo..opkko...........",
+  "............ookkpo..opkkooo.........",
+  ".........oooyyykko..okyyyyyoo.......",
+  "........oyYYYyyyyyooyYYYYyyyyo......",
+  "........oyyyyyyyyyoyyyyyyyyyyyo.....",
+  "........oyyyyyyyyyooyyyyyyyyyo......",
+  ".........oooyyyooo..ooyyyyyoo.......",
+  "............ooo.......ooooo.........",
+  "....................................",
+];
+const TENNA_PAL = {
+  o: "#2a2050", l: "#c8c0f0", w: "#fbf9ff", v: "#8a80c8", r: "#e0204a", d: "#a01030",
+  y: "#ffe040", Y: "#fff8b0", g: "#c8901a", k: "#16121e", p: "#4a4080", m: "#111111",
+};
+function tenna(cx, floorY, t) {
+  const px = Math.max(1, Math.round(H / 88));
+  const bob = Math.round(Math.abs(Math.sin(t * 2.2)) * 2);
+  const x0 = Math.round(cx - (TENNA[0].length * px) / 2), y0 = floorY - TENNA.length * px;
+  TENNA.forEach((row, j) => {
+    // everything above the shoes bobs; the shoes stay planted
+    const dy = j < 38 ? -bob : 0;
+    [...row].forEach((ch, i) => { if (TENNA_PAL[ch]) R(x0 + i * px, y0 + j * px + dy, px, px, TENNA_PAL[ch]); });
+  });
+  // a sheen that slides across his screen
+  const sw = (t % 5) / 1.2;
+  if (sw < 1) {
+    const sx = 13 + Math.round(sw * 12);
+    ctx.globalAlpha = 0.8;
+    R(x0 + (sx + 2) * px, y0 + 6 * px - bob, px, 5 * px, "#ffffff");
+    ctx.globalAlpha = 1;
+  }
+}
+
+let last = performance.now(), t = 0, chanT = 10, chanFlash = 0;
+function frame(now) {
+  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)) * opts.speed;
+  last = Math.max(last, now);
+  t += dt;
+
+  // dark studio
+  R(0, 0, W, H, "#0a0410");
+  const stageY = Math.round(H * 0.74);
+
+  // back wall with a giant glowing "ON AIR" style panel
+  const bg = ctx.createLinearGradient(0, 0, 0, stageY);
+  bg.addColorStop(0, "#14062a");
+  bg.addColorStop(1, "#2a0c40");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, stageY);
+
+  // marquee frame with blinking bulbs
+  const mx = W * 0.2, my = H * 0.08, mw = W * 0.6, mh = H * 0.5;
+  R(mx, my, mw, mh, "#3a0c1c");
+  R(mx + 4 * S, my + 4 * S, mw - 8 * S, mh - 8 * S, "#1a0614");
+  const step = 8 * S;
+  let i = 0;
+  const bulb = (x, y) => {
+    const on = (Math.floor(t * 4) + i++) % 3 !== 0;
+    R(x - S, y - S, 2 * S, 2 * S, on ? "#ffe680" : "#5a4020");
+    if (on) { ctx.globalAlpha = 0.25; R(x - 2 * S, y - 2 * S, 4 * S, 4 * S, "#ffcc00"); ctx.globalAlpha = 1; }
+  };
+  for (let x = mx + 2 * S; x < mx + mw; x += step) bulb(x, my + 2 * S);
+  for (let y = my + 2 * S + step; y < my + mh; y += step) bulb(mx + mw - 2 * S, y);
+  for (let x = mx + mw - 2 * S - step; x > mx; x -= step) bulb(x, my + mh - 2 * S);
+  for (let y = my + mh - 2 * S - step; y > my; y -= step) bulb(mx + 2 * S, y);
+
+  // red curtains on both sides, gently swaying
+  for (const side of [0, 1]) {
+    const cw = W * 0.18;
+    for (let k = 0; k < 8; k++) {
+      const fx = side ? W - cw + (k * cw) / 8 : (k * cw) / 8;
+      const sway = Math.sin(t * 0.8 + k) * 1.5;
+      R(fx + sway, 0, cw / 8 + 1, stageY, k % 2 ? "#8a0c1e" : "#b0142a");
+      R(fx + sway, 0, 1, stageY, "#5a0812");
+    }
+  }
+  R(0, 0, W, 10 * S, "#8a0c1e");                                    // valance
+  for (let x = 0; x < W; x += 12 * S) ellipse(x + 6 * S, 10 * S, 6 * S, 3 * S, "#b0142a");
+  for (let x = 0; x < W; x += 12 * S) R(x + 5 * S, 12 * S, 2 * S, 2 * S, "#ffcc00");
+
+  // stage floor
+  R(0, stageY, W, H - stageY, "#3a1a10");
+  for (let x = 0; x < W; x += 16 * S) R(x, stageY, 1, H - stageY, "#2a1008");
+  R(0, stageY, W, 2 * S, "#ffcc00");
+
+  // sweeping spotlights
+  ctx.globalCompositeOperation = "lighter";
+  for (const k of [0, 1, 2]) {
+    const ox = W * (0.15 + k * 0.35), aim = W / 2 + Math.sin(t * (0.5 + k * 0.17) + k * 2) * W * 0.3;
+    const g = ctx.createLinearGradient(0, 0, 0, stageY);
+    g.addColorStop(0, ["rgba(255,220,120,0.35)", "rgba(255,90,200,0.3)", "rgba(120,180,255,0.3)"][k]);
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    poly([[ox - 3 * S, 0], [ox + 3 * S, 0], [aim + 26 * S, stageY], [aim - 26 * S, stageY]], g);
+    ctx.globalAlpha = 0.25;
+    ellipse(aim, stageY + 4 * S, 26 * S, 5 * S, ["#ffdc78", "#ff5ac8", "#78b4ff"][k]);
+    ctx.globalAlpha = 1;
+  }
+  ctx.globalCompositeOperation = "source-over";
+
+  // Tenna, center stage
+  tenna(W / 2, stageY + 8 * S, t);
+
+  // audience heads silhouetted at the bottom, bobbing
+  for (const h of heads) {
+    const y = H - (h.row ? 6 : 14) * S + Math.abs(Math.sin(t * 4 + h.p)) * -1.5 * S;
+    ellipse(h.x, y, 6 * S, 7 * S, h.col);
+    R(h.x - 8 * S, y + 5 * S, 16 * S, 10 * S, h.col);
+  }
+
+  // channel change: static + color bars
+  if (opts.static) {
+    chanT -= dt;
+    if (chanT <= 0) { chanFlash = 0.6; chanT = rnd(12, 22); }
+    if (chanFlash > 0) {
+      chanFlash -= dt;
+      if (chanFlash > 0.3) {
+        for (let n = 0; n < W * H / 6; n++) {
+          const v = Math.random() * 255 | 0;
+          R(Math.random() * W, Math.random() * H, 2, 1, `rgb(${v},${v},${v})`);
+        }
+      } else {
+        const bars = ["#c0c0c0", "#c0c000", "#00c0c0", "#00c000", "#c000c0", "#c00000", "#0000c0"];
+        ctx.globalAlpha = Math.min(1, chanFlash * 4);
+        bars.forEach((b, k) => R((k * W) / 7, 0, W / 7 + 1, H * 0.75, b));
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+function livelyPropertyListener(name, val) {
+  if (name in opts) opts[name] = val;
+}
+</script>
+</body>
+</html>

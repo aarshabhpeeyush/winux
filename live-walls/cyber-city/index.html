@@ -1,0 +1,702 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Cyber City</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #1a0420; overflow: hidden; }
+  canvas { width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="c" tabindex="0"></canvas>
+<script>
+// Cyber City, pink edition: a neon skyline, traffic streaking past, and
+// Spamton NEO's silhouette hanging on green strings in the middle of it all.
+//
+// Press a game key and it turns into a (simplified) Spamton NEO battle:
+//   arrows / WASD  move the yellow soul
+//   Z / Space / Enter  shoot  (hold ~1 second, then let go, for a BIG SHOT)
+//   C  Ralsei's heal (costs 32% TP)  -  graze bullets to build TP
+// Leave it alone for 15 seconds and it goes back to the city.
+const PIXEL = 4;
+const opts = { neon: "#ff3ea5", speed: 1, jitter: true, game: true };
+
+const c = document.getElementById("c");
+const ctx = c.getContext("2d");
+let W, H, S, towers = [], stars = [], cars = [];
+
+const R = (x, y, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+function ellipse(cx, cy, rx, ry, col) {
+  ctx.fillStyle = col;
+  for (let y = -ry; y <= ry; y++) {
+    const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - (y * y) / (ry * ry))));
+    ctx.fillRect(Math.round(cx - half), Math.round(cy + y), half * 2 + 1, 1);
+  }
+}
+function poly(pts, col) {
+  ctx.fillStyle = col;
+  ctx.beginPath();
+  pts.forEach(([x, y], i) => (i ? ctx.lineTo(Math.round(x), Math.round(y)) : ctx.moveTo(Math.round(x), Math.round(y))));
+  ctx.closePath();
+  ctx.fill();
+}
+const rnd = (a, b) => a + Math.random() * (b - a);
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+
+// ---------------------------------------------------------------- tiny pixel font
+const FONT = {
+  A: "010101111101101", B: "110101110101110", C: "011100100100011", D: "110101101101110", E: "111100110100111",
+  F: "111100110100100", G: "011100101101011", H: "101101111101101", I: "111010010010111", J: "001001001101010",
+  K: "101101110101101", L: "100100100100111", M: "101111111101101", N: "110101101101101", O: "010101101101010",
+  P: "110101110100100", Q: "010101101110011", R: "110101110101101", S: "011100010001110", T: "111010010010010",
+  U: "101101101101111", V: "101101101101010", W: "101101111111101", X: "101101010101101", Y: "101101010010010",
+  Z: "111001010100111", "0": "111101101101111", "1": "010110010010111", "2": "111001111100111",
+  "3": "111001111001111", "4": "101101111001001", "5": "111100111001111", "6": "111100111101111",
+  "7": "111001001001001", "8": "111101111101111", "9": "111101111001111", "/": "001001010100100",
+  "!": "010010010000010", ".": "000000000000010", ",": "000000000010100", "-": "000000111000000",
+  "'": "010010000000000", "?": "110001010000010", "*": "000101010101000", " ": "000000000000000",
+  "[": "110100100100110", "]": "011001001001011", "$": "011110010011110", ":": "000010000010000",
+  "%": "101001010100101",
+};
+function text(str, x, y, s, col) {
+  ctx.fillStyle = col;
+  for (const ch of str.toUpperCase()) {
+    const g = FONT[ch] || FONT[" "];
+    for (let i = 0; i < 15; i++) if (g[i] === "1") ctx.fillRect(Math.round(x + (i % 3) * s), Math.round(y + Math.floor(i / 3) * s), s, s);
+    x += 4 * s;
+  }
+  return x;
+}
+const textWidth = (str, s) => str.length * 4 * s - s;
+
+// ---------------------------------------------------------------- setup
+let box, soul, party;
+function resize() {
+  W = c.width = Math.ceil(innerWidth / PIXEL);
+  H = c.height = Math.ceil(innerHeight / PIXEL);
+  S = Math.max(1, Math.round(H / 270));
+  stars = Array.from({ length: Math.round(W * H / 600) }, () => ({ x: rnd(0, W), y: rnd(0, H * 0.4), p: rnd(0, 6) }));
+  towers = [];
+  for (const depth of [0, 1]) {
+    let x = -10;
+    while (x < W + 10) {
+      const w = Math.round(rnd(12, 26 + depth * 10));
+      const h = Math.round(H * rnd(0.25 + depth * 0.1, 0.55 + depth * 0.12));
+      const wins = [];
+      for (let wy = H - h + 4; wy < H - 4; wy += 4)
+        for (let wx = x + 3; wx < x + w - 3; wx += 4)
+          if (Math.random() < 0.35) wins.push({ x: wx, y: wy, p: rnd(0, 6), col: Math.random() < 0.6 ? 0 : 1 });
+      towers.push({ x, w, h, depth, wins, sign: Math.random() < 0.3 ? rnd(0, 6) : null,
+                    spire: Math.random() < 0.3 });
+      x += w + Math.round(rnd(1, 6));
+    }
+  }
+  const bs = Math.round(H * 0.4);
+  box = { x: Math.round(W * 0.47 - bs / 2), y: Math.round(H * 0.42 - bs / 2), w: bs, h: bs };
+  if (soul) { soul.x = box.x + box.w / 2; soul.y = box.y + box.h / 2; }
+}
+addEventListener("resize", resize);
+resize();
+
+// ---------------------------------------------------------------- Spamton NEO
+// As a silhouette. (x, y) = between his feet. Drawn in one color so it can be
+// stamped twice: an outline color first, then the dark shape on top.
+// w = how far the big wing is flapping.
+const WING = [[10, -112], [24, -150], [34, -134], [56, -128], [80, -106], [94, -84],
+              [80, -88], [74, -70], [62, -84], [52, -64], [42, -80], [30, -60], [18, -74], [10, -66]];
+const LIFT = [0, 1, 1, 1, 0.6, 0.3, 0, 0, 0, 0, 0, 0, 0, 0];
+
+// pal (optional) colors each part, like the real fight; without it everything is `col`.
+function neo(x, y, s, col, w, pal = null) {
+  const P = (pts, part) => poly(pts.map(([px, py]) => [x + px * s, y + py * s]), pal ? pal[part] : col);
+  // left wing: a mirror of the big one, a little smaller, behind the raised arm
+  const leftWing = WING.map(([px, py], i) => [-(px * 0.9) - 2, py * 0.95 - w * LIFT[i]]);
+  P(leftWing, "wingL");
+  // the giant wing, jagged along the bottom
+  const rightWing = WING.map(([px, py], i) => [px, py - w * LIFT[i]]);
+  P(rightWing, "wingR");
+  if (pal) {
+    // yellow streaks along the wing tips
+    P([[56, -128 - w], [80, -106 - w * 0.6], [94, -84 - w * 0.3], [80, -94], [64, -110]], "tipR");
+    P([[52, -86], [62, -84], [74, -70], [66, -78]], "tipR");
+    P([[-52, -122 - w], [-74, -101 - w * 0.6], [-86, -80 - w * 0.3], [-72, -90], [-58, -106]], "tipL");
+  }
+  // long dangling legs with pointed feet
+  P([[-9, -58], [-3, -58], [-4, -28], [-6, -4], [-12, 0], [-9, -6], [-10, -30]], "legs");
+  P([[2, -58], [8, -58], [8, -30], [9, -6], [15, -1], [6, -3], [3, -30]], "legs");
+  // narrow torso (his suit)
+  P([[-12, -58], [-17, -112], [14, -114], [10, -58]], "suit");
+  if (pal) P([[-3, -112], [3, -112], [1, -64], [-1, -64]], "lapel");
+  // raised arm with a clawed hand
+  P([[-16, -110], [-34, -146], [-27, -150], [-9, -112]], "suit");
+  P([[-36, -146], [-44, -158], [-32, -150]], "claw");
+  P([[-31, -149], [-32, -162], [-26, -151]], "claw");
+  P([[-27, -150], [-20, -158], [-25, -146]], "claw");
+  // head with spiky hair
+  P([[-13, -126], [-26, -148], [-6, -132]], "hair");
+  P([[-6, -133], [-9, -160], [4, -134]], "hair");
+  P([[3, -132], [16, -152], [10, -124]], "hair");
+  P([[9, -126], [20, -132], [8, -118]], "hair");
+  ellipse(x - 2 * s, y - 124 * s, 12 * s, 11 * s, pal ? pal.face : col);
+  if (pal) {
+    ellipse(x - 2 * s, y - 131 * s, 12 * s, 4 * s, pal.hair);            // hair over the forehead
+    R(x - 12 * s, y - 128 * s, 9 * s, 5 * s, "#ff4fa3");                 // pink lens
+    R(x - 1 * s, y - 128 * s, 9 * s, 5 * s, "#ffe24a");                  // yellow lens
+    R(x - 3 * s, y - 127 * s, 2 * s, 2 * s, "#000");                     // bridge
+    for (let i = -8; i <= 7; i++) R(x + i * s, y - 119 * s + (Math.abs(i) % 2) * s - Math.abs(i) * 0.3 * s, s, s, "#000");  // grin
+  }
+}
+
+const NEO_COLORS = {
+  wingL: "#7a3ad0", tipL: "#c8ff4a", wingR: "#e8389a", tipR: "#ffe24a", legs: "#141018",
+  suit: "#d0287a", lapel: "#141018", claw: "#141018", hair: "#141018", face: "#f4f0e8",
+};
+
+// The whole puppet: strings, outline, body, glowing eyes and chest triangle.
+function drawNeo(x, sy, s, outline, t, flash = false, colored = false) {
+  const wing = Math.sin(t * 1.5) * 6;
+  ctx.strokeStyle = "rgba(60,255,110,0.75)";
+  ctx.lineWidth = 1;
+  for (const [hx, hy] of [[-10, -150], [-5, -158], [0, -150], [5, -146], [10, -150], [-31, -160], [24, -150 - wing]]) {
+    ctx.beginPath();
+    ctx.moveTo(Math.round(x + hx * s + Math.sin(t + hx) * 1.5), 0);
+    ctx.lineTo(Math.round(x + hx * s), Math.round(sy + hy * s));
+    ctx.stroke();
+  }
+  if (outline) for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) neo(x + ox, sy + oy, s, outline, wing);
+  if (colored && !flash) {
+    neo(x, sy, s, null, wing, NEO_COLORS);
+    poly([[x - 15 * s, sy - 100 * s], [x + 1 * s, sy - 102 * s], [x + 1 * s, sy - 85 * s]], "#ffe600");
+    return;
+  }
+  neo(x, sy, s, flash ? "#ffffff" : "#05000a", wing);
+  const blink = (t % 4) < 0.1;
+  if (!blink) {
+    R(x - 9 * s, sy - 127 * s, 3 * s, 3 * s, "#ffe600");
+    R(x + 1 * s, sy - 126 * s, 3 * s, 3 * s, "#ffe600");
+  }
+  poly([[x - 15 * s, sy - 100 * s], [x + 1 * s, sy - 102 * s], [x + 1 * s, sy - 85 * s]], "#ffe600");
+}
+
+// ---------------------------------------------------------------- the city (idle wallpaper)
+let jit = 0;
+function drawCity(dt, t) {
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, "#14021c");
+  sky.addColorStop(0.5, "#4a0b4f");
+  sky.addColorStop(0.8, "#a01d6e");
+  sky.addColorStop(1, "#ff5fae");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
+  for (const s of stars) {
+    ctx.globalAlpha = 0.2 + 0.4 * (0.5 + 0.5 * Math.sin(t * 1.3 + s.p));
+    R(s.x, s.y, 1, 1, "#ffd6ef");
+  }
+  ctx.globalAlpha = 1;
+
+  ellipse(Math.round(W * 0.5), Math.round(H * 0.36), Math.round(H * 0.2), Math.round(H * 0.2), "#ff8fcb");
+  for (let i = 0; i < 6; i++) R(W * 0.5 - H * 0.2, H * 0.36 + i * 5 + 4, H * 0.4, 1 + (i > 3 ? 1 : 0), "#ff5fae");
+
+  for (const tw of towers) {
+    const body = tw.depth ? "#2a0733" : "#5a1563";
+    R(tw.x, H - tw.h, tw.w, tw.h, body);
+    if (tw.spire) R(tw.x + tw.w / 2, H - tw.h - 8, 1, 8, body);
+    for (const w of tw.wins) {
+      if (Math.sin(t * 0.8 + w.p) <= -0.6) continue;
+      ctx.globalAlpha = tw.depth ? 0.9 : 0.5;
+      R(w.x, w.y, 2, 2, w.col ? "#7ff3ff" : opts.neon);
+    }
+    ctx.globalAlpha = 1;
+    if (tw.sign !== null) {
+      const flash = Math.sin(t * 3 + tw.sign) > 0;
+      R(tw.x + 2, H - tw.h + 6, tw.w - 4, 6, flash ? opts.neon : "#ffe24a");
+      R(tw.x + 3, H - tw.h + 8, tw.w - 6, 2, "#2a0733");
+    }
+  }
+
+  if (Math.random() < 0.05 * opts.speed) {
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    cars.push({ x: dir > 0 ? -20 : W + 20, y: Math.round(rnd(H * 0.35, H * 0.7)), v: dir * rnd(50, 110),
+                col: Math.random() < 0.5 ? opts.neon : "#7ff3ff" });
+  }
+  for (const car of cars) {
+    car.x += car.v * dt;
+    ctx.globalAlpha = 0.85;
+    R(car.x - (car.v > 0 ? 14 : 0), car.y, 14, 1, car.col);
+    R(car.x, car.y - 1, 3, 2, "#fff");
+  }
+  cars = cars.filter((car) => car.x > -40 && car.x < W + 40);
+  ctx.globalAlpha = 1;
+
+  const floorY = Math.round(H * 0.86);
+  R(0, floorY, W, H - floorY, "#12021a");
+  ctx.fillStyle = opts.neon;
+  ctx.globalAlpha = 0.55;
+  ctx.fillRect(0, floorY, W, 1);
+  for (let i = 1; i < 6; i++) ctx.fillRect(0, floorY + Math.round(i * i * 0.9), W, 1);
+  ctx.strokeStyle = opts.neon;
+  ctx.lineWidth = 1;
+  for (let x = -W; x < W * 2; x += 16) {
+    ctx.beginPath();
+    ctx.moveTo(W / 2 + (x - W / 2) * 0.25, floorY);
+    ctx.lineTo(x, H);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  jit -= dt;
+  if (opts.jitter && jit < -3 - Math.random() * 4) jit = 0.35;
+  const jx = jit > 0 ? Math.round((Math.random() - 0.5) * 4 * S) : 0;
+  drawNeo(Math.round(W * 0.47) + jx, floorY - 4 + Math.round(Math.sin(t * 2) * 2 * S), S, opts.neon, t);
+
+  // a quiet hint every so often
+  if (opts.game && t % 40 > 34) {
+    ctx.globalAlpha = Math.min(1, (t % 40 - 34), 40 - t % 40) * 0.6;
+    const hint = "PRESS AN ARROW KEY TO FIGHT";
+    text(hint, W - textWidth(hint, S) - 6 * S, H - 8 * S, S, "#ffd6ef");
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ---------------------------------------------------------------- party sprites (simplified)
+// Drawn from the party reference: (x, y) = between the feet. Each gets a black outline
+// by drawing the shapes first in black, slightly bigger, then in color.
+function kris(x, y, s, t) {
+  const b = Math.round(Math.sin(t * 3) * 0.6 * s);
+  const P = (pts, col) => poly(pts.map(([px, py]) => [x + px * s, y + py * s + (py < -8 ? b : 0)]), col);
+  // big salmon sword held up and forward
+  P([[4, -16], [20, -30], [23, -27], [7, -13]], "#000");
+  P([[5, -16], [20, -29], [22, -27], [7, -14]], "#f09a98");
+  P([[2, -16], [6, -20], [9, -12], [5, -11]], "#7a2030");                                   // hilt
+  // magenta cape/scarf flowing behind
+  P([[-4, -24], [3, -24], [-2, -14], [-11, -8], [-8, -16]], "#000");
+  P([[-3, -23], [2, -23], [-2, -15], [-9, -9], [-7, -16]], "#c8306a");
+  // legs: light pants, dark boots
+  R(x - 4 * s, y - 9 * s, 3 * s, 7 * s, "#9aa8c8"); R(x + 1 * s, y - 9 * s, 3 * s, 7 * s, "#9aa8c8");
+  R(x - 5 * s, y - 2 * s, 4 * s, 2 * s, "#1d1a3a"); R(x + 1 * s, y - 2 * s, 4 * s, 2 * s, "#1d1a3a");
+  // dark top
+  P([[-5, -21], [5, -21], [5, -9], [-5, -9]], "#2a2850");
+  P([[-5, -21], [5, -21], [3, -18], [-3, -18]], "#c8306a");                                 // scarf around the neck
+  // pale blue-gray face under a big messy navy mop of hair
+  ellipse(x, y - 26 * s + b, 5 * s, 4 * s, "#a8b4d0");
+  P([[-7, -26], [-6, -32], [-2, -34], [4, -33], [7, -29], [6, -24], [4, -27], [1, -25], [-2, -27], [-4, -23], [-6, -21]], "#1d1a3a");
+}
+function susie(x, y, s, t) {
+  const b = Math.round(Math.sin(t * 3 + 1) * 0.6 * s);
+  const P = (pts, col) => poly(pts.map(([px, py]) => [x + px * s, y + py * s + (py < -9 ? b : 0)]), col);
+  // huge axe held out to the side: teal blade, brown handle
+  P([[-4, -18], [-20, -24], [-20, -22], [-4, -16]], "#5a3a22");
+  P([[-17, -32], [-28, -30], [-30, -18], [-24, -14], [-17, -18]], "#000");
+  P([[-18, -31], [-27, -29], [-29, -19], [-24, -15], [-18, -19]], "#78c8b8");
+  P([[-20, -29], [-26, -28], [-27, -22]], "#b8f0e4");
+  // legs
+  R(x - 5 * s, y - 10 * s, 4 * s, 8 * s, "#3a2240"); R(x + 1 * s, y - 10 * s, 4 * s, 8 * s, "#3a2240");
+  R(x - 6 * s, y - 2 * s, 5 * s, 2 * s, "#1a1020"); R(x + 1 * s, y - 2 * s, 5 * s, 2 * s, "#1a1020");
+  // dark maroon jacket with a pink stripe
+  P([[-6, -24], [6, -24], [7, -10], [-7, -10]], "#5a2a5a");
+  P([[-6, -18], [7, -18], [7, -16], [-6, -16]], "#e04a9a");
+  R(x - 9 * s, y - 20 * s + b, 3 * s, 4 * s, "#9a5ab8");                                     // purple hand on the axe
+  // purple face, mostly hidden by a long wild magenta mane
+  ellipse(x + 1 * s, y - 29 * s + b, 5 * s, 4 * s, "#9a5ab8");
+  R(x - 1 * s, y - 27 * s + b, 5 * s, 1 * s, "#fff");                                        // toothy grin
+  P([[-8, -24], [-6, -34], [0, -37], [6, -35], [9, -30], [8, -20], [5, -26], [3, -30], [-1, -31], [-4, -28], [-6, -18]], "#c8388a");
+}
+function ralseiMini(x, y, s, t) {
+  const b = Math.round(Math.sin(t * 3 + 2) * 0.6 * s);
+  const P = (pts, col) => poly(pts.map(([px, py]) => [x + px * s, y + py * s + (py < -4 ? b : 0)]), col);
+  // green robe with a black heart
+  P([[-8, 0], [-5, -17], [5, -17], [8, 0]], "#000");
+  P([[-7, -1], [-4, -16], [4, -16], [7, -1]], "#4ac08a");
+  P([[-2, -10], [0, -12], [2, -10], [0, -6]], "#000");
+  R(x - 2 * s, y - 12 * s + b, 1 * s, 1 * s, "#000"); R(x + 1 * s, y - 12 * s + b, 1 * s, 1 * s, "#000");
+  // pink scarf with a trailing end
+  ellipse(x, y - 17 * s + b, 6 * s, 2 * s, "#e0408a");
+  P([[3, -17], [7, -16], [9, -9], [6, -10]], "#e0408a");
+  // face in the hat's shadow, with round green glasses
+  ellipse(x, y - 21 * s + b, 5 * s, 4 * s, "#1a1a1a");
+  for (const gx of [-2, 2]) {
+    ellipse(x + gx * s, y - 21 * s + b, 2 * s, 2 * s, "#4ac08a");
+    R(x + gx * s, y - 21 * s + b, s, s, "#1a1a1a");
+  }
+  // big floppy green wizard hat
+  ellipse(x, y - 25 * s + b, 9 * s, 2 * s, "#1b6a40");
+  P([[-6, -26], [-2, -36], [3, -40], [7, -38], [3, -35], [5, -26]], "#2a8a5a");
+}
+
+// ---------------------------------------------------------------- battle state
+const KEYS = new Set();
+const KEYMAP = { ArrowUp: "u", KeyW: "u", ArrowDown: "d", KeyS: "d", ArrowLeft: "l", KeyA: "l", ArrowRight: "r", KeyD: "r",
+                 KeyZ: "z", Space: "z", Enter: "z", NumpadEnter: "z", KeyJ: "z", KeyC: "c", KeyX: "c" };
+let mode = "city", modeFade = 0, lastKey = -99;
+let hazards = [], shots = [], sparks = [];
+let tp = 0, neoHP = 100, neoFlash = 0, hurt = 0, gameOver = 0, won = 0;
+let charge = 0, attackIdx = 0, attackT = 0, speech = "", speechT = 0, healFx = 0;
+const MEMBERS = [
+  { name: "KRIS", max: 120, col: "#00c8ff", draw: kris },
+  { name: "SUSIE", max: 140, col: "#ff4fd8", draw: susie },
+  { name: "RALSEI", max: 100, col: "#3cff6a", draw: ralseiMini },
+];
+
+function startBattle() {
+  mode = "battle";
+  modeFade = 0.5;
+  soul = { x: box.x + box.w / 2, y: box.y + box.h / 2 };
+  party = MEMBERS.map((m) => ({ ...m, hp: m.max, down: 0, hit: 0 }));
+  hazards = []; shots = []; sparks = [];
+  tp = 0; neoHP = 100; gameOver = 0; won = 0; attackIdx = 0; attackT = -1.5;
+  say("HEY EVERY-");
+}
+function say(s, time = 2.2) { speech = s; speechT = time; }
+
+addEventListener("keydown", (e) => {
+  const k = KEYMAP[e.code];
+  if (!k || !opts.game) return;
+  e.preventDefault();
+  lastKey = tBattle;
+  if (mode === "city") { startBattle(); return; }
+  if (k === "c" && !e.repeat) heal();
+  KEYS.add(k);
+});
+addEventListener("keyup", (e) => {
+  const k = KEYMAP[e.code];
+  if (!k) return;
+  if (k === "z" && mode === "battle") fire();
+  KEYS.delete(k);
+});
+addEventListener("blur", () => KEYS.clear());
+c.addEventListener("mousedown", () => c.focus());
+
+// ---------------------------------------------------------------- player actions
+function fire() {
+  if (gameOver || won) { charge = 0; return; }
+  const big = charge >= 0.9;
+  shots.push({ x: soul.x + 4 * S, y: soul.y, big, v: big ? 140 : 190 });
+  if (big) say("[[BIG SHOT]]!!", 1.5);
+  charge = 0;
+}
+function heal() {
+  if (tp < 32 || gameOver || won) return;
+  tp -= 32;
+  const target = party.find((p) => p.down) || party.reduce((a, b) => (a.hp / a.max < b.hp / b.max ? a : b));
+  if (target.down) { target.down = 0; target.hp = Math.round(target.max / 2); }
+  else target.hp = Math.min(target.max, target.hp + 50);
+  healFx = 1;
+}
+function hitParty() {
+  if (hurt || gameOver || won) return;
+  hurt = 1;
+  const alive = party.filter((p) => !p.down);
+  if (!alive.length) return;
+  const p = pick(alive);
+  p.hp -= 30;
+  p.hit = 0.5;
+  if (p.hp <= 0) { p.hp = 0; p.down = 10; }
+  if (party.every((m) => m.down)) { gameOver = 4; hazards = []; say("[[GAME OVER]]", 3); }
+}
+
+// ---------------------------------------------------------------- NEO's attacks (simplified)
+const ATTACKS = [
+  function heads() {           // little Spamton heads fly at the soul
+    for (let i = 0; i < 6; i++) {
+      hazards.push({ type: "head", x: box.x + box.w + 30 * S + i * 18 * S, y: rnd(box.y + 6, box.y + box.h - 6),
+                     wait: i * 0.35, sp: 60 });
+    }
+    say(pick(["[[DEAL]]S!", "KRIS!!", "[[HEAD]] OF THE CLASS"]));
+  },
+  function pipis() {           // eggs drift in and burst into pellets
+    for (let i = 0; i < 3; i++) {
+      hazards.push({ type: "pipi", x: box.x + box.w + 10 * S, y: box.y + box.h * (0.25 + i * 0.25),
+                     vx: -rnd(25, 40), vy: rnd(-6, 6), fuse: 1.6 + i * 0.5 });
+    }
+    say("PIPIS!");
+  },
+  function phones() {          // phone hands slam down a column (warning flash first)
+    const cols = [0.15, 0.4, 0.65, 0.9].sort(() => Math.random() - 0.5).slice(0, 3);
+    cols.forEach((f, i) => hazards.push({ type: "phone", x: box.x + box.w * f, y: box.y - 20 * S, warn: 0.7 + i * 0.5, w: 10 * S }));
+    say("[[CALL]] NOW!");
+  },
+  function wires() {           // green strings sweep across the box
+    for (let i = 0; i < 4; i++) {
+      const horiz = i % 2 === 0;
+      hazards.push({ type: "wire", horiz, pos: horiz ? rnd(box.y + 8, box.y + box.h - 8) : rnd(box.x + 8, box.x + box.w - 8),
+                     warn: 0.8 + i * 0.6, live: 0.45 });
+    }
+    say("[[STRINGS]] ATTACHED!");
+  },
+];
+
+function addPellets(x, y, n) {
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    hazards.push({ type: "pellet", x, y, vx: Math.cos(a) * 45, vy: Math.sin(a) * 45 });
+  }
+}
+
+function graze(h, d) {          // bullets that pass close build TP (once each)
+  if (!h.grazed && d < 12 * S) { h.grazed = true; tp = Math.min(100, tp + 3); sparks.push({ x: soul.x, y: soul.y - 5 * S, life: 0.4 }); }
+}
+
+// ---------------------------------------------------------------- battle update
+function updateBattle(dt, t) {
+  // timers
+  hurt = Math.max(0, hurt - dt);
+  neoFlash = Math.max(0, neoFlash - dt);
+  healFx = Math.max(0, healFx - dt);
+  speechT -= dt;
+  for (const p of party) {
+    p.hit = Math.max(0, p.hit - dt);
+    if (p.down) { p.down -= dt; if (p.down <= 0) { p.down = 0; p.hp = Math.round(p.max / 3); } }
+  }
+  if (gameOver) { gameOver -= dt; if (gameOver <= 0) startBattle(); return; }
+  if (won) { won -= dt; if (won <= 0) { neoHP = 100; won = 0; say("[[ROUND 2]]!"); } return; }
+
+  // moving the soul
+  const sp = 70;
+  soul.x += ((KEYS.has("r") ? 1 : 0) - (KEYS.has("l") ? 1 : 0)) * sp * dt;
+  soul.y += ((KEYS.has("d") ? 1 : 0) - (KEYS.has("u") ? 1 : 0)) * sp * dt;
+  soul.x = Math.min(box.x + box.w - 5 * S, Math.max(box.x + 4 * S, soul.x));
+  soul.y = Math.min(box.y + box.h - 4 * S, Math.max(box.y + 4 * S, soul.y));
+  if (KEYS.has("z")) charge += dt;
+
+  // NEO's attack rhythm
+  attackT += dt;
+  if (attackT > 4.5) { ATTACKS[attackIdx % ATTACKS.length](); attackIdx++; attackT = 0; }
+
+  // shots
+  for (const s of shots) {
+    s.x += s.v * dt;
+    for (const h of hazards) {
+      if ((h.type === "head" || h.type === "pipi") && !h.wait && Math.abs(h.x - s.x) < (s.big ? 7 : 4) * S && Math.abs(h.y - s.y) < (s.big ? 7 : 4) * S) {
+        h.dead = true;
+        if (h.type === "pipi") addPellets(h.x, h.y, 6);
+        sparks.push({ x: h.x, y: h.y, life: 0.3 });
+        if (!s.big) s.dead = true;
+      }
+    }
+    if (s.x > box.x + box.w) {    // left the box: it hits NEO
+      s.dead = true;
+      neoHP = Math.max(0, neoHP - (s.big ? 8 : 1));
+      neoFlash = 0.12;
+      if (neoHP === 0 && !won) { won = 6; hazards = []; say("[[BIG SHOT]]!!", 5); }
+    }
+  }
+  shots = shots.filter((s) => !s.dead);
+
+  // hazards
+  for (const h of hazards) {
+    if (h.type === "head") {
+      if (h.wait > 0) { h.wait -= dt; if (h.wait <= 0) { h.wait = 0; const dx = soul.x - h.x, dy = soul.y - h.y, d = Math.hypot(dx, dy) || 1; h.vx = dx / d * h.sp; h.vy = dy / d * h.sp; } continue; }
+      h.x += h.vx * dt; h.y += h.vy * dt;
+    } else if (h.type === "pipi") {
+      h.x += h.vx * dt; h.y += h.vy * dt; h.fuse -= dt;
+      if (h.fuse <= 0) { h.dead = true; addPellets(h.x, h.y, 8); continue; }
+    } else if (h.type === "pellet") {
+      h.x += h.vx * dt; h.y += h.vy * dt;
+    } else if (h.type === "phone") {
+      if (h.warn > 0) { h.warn -= dt; continue; }
+      h.y += 260 * dt;
+      if (Math.abs(soul.x - h.x) < h.w / 2 + 2 * S && soul.y > h.y - 14 * S && soul.y < h.y + 4 * S) hitParty();
+      else graze(h, Math.abs(soul.x - h.x) - h.w / 2 < 6 * S && Math.abs(soul.y - h.y) < 16 * S ? 0 : 999);
+      if (h.y > box.y + box.h + 20 * S) h.dead = true;
+      continue;
+    } else if (h.type === "wire") {
+      if (h.warn > 0) { h.warn -= dt; continue; }
+      h.live -= dt;
+      const d = Math.abs((h.horiz ? soul.y : soul.x) - h.pos);
+      if (d < 3 * S) hitParty(); else graze(h, d);
+      if (h.live <= 0) h.dead = true;
+      continue;
+    }
+    const d = Math.hypot(soul.x - h.x, soul.y - h.y);
+    if (d < (h.type === "pellet" ? 3 : 5) * S) { hitParty(); h.dead = true; }
+    else graze(h, d);
+  }
+  hazards = hazards.filter((h) => !h.dead && (h.type === "wire" ||   // wires have no position, they last a set time
+    (h.x > box.x - 120 * S && h.x < W + 40 && h.y > -40 && h.y < H + 40)));
+  for (const sp2 of sparks) sp2.life -= dt;
+  sparks = sparks.filter((s2) => s2.life > 0);
+}
+
+// ---------------------------------------------------------------- battle drawing
+function spamHead(x, y, s) {
+  R(x - 4 * s, y - 4 * s, 8 * s, 8 * s, "#000");
+  R(x - 3 * s, y - 3 * s, 6 * s, 6 * s, "#f2e8d8");
+  R(x - 4 * s, y - 5 * s, 8 * s, 2 * s, "#000");                  // slicked hair
+  R(x - 3 * s, y - 2 * s, 3 * s, 2 * s, "#ff4fa3");               // pink + yellow glasses
+  R(x, y - 2 * s, 3 * s, 2 * s, "#ffe24a");
+  R(x - 2 * s, y + 1 * s, 5 * s, 1 * s, "#000");                  // grin
+}
+
+function drawBattle(dt, t) {
+  // spinning blue rays behind NEO, like the real fight
+  const nx = Math.round(W * 0.8), ny = Math.round(H * 0.84);
+  R(0, 0, W, H, "#000018");
+  const rays = 14, spin = t * 0.25;
+  for (let i = 0; i < rays; i++) {
+    const a0 = spin + (i / rays) * Math.PI * 2, a1 = a0 + Math.PI / rays;
+    const L = W * 1.5;
+    poly([[nx, ny - 100 * S], [nx + Math.cos(a0) * L, ny - 100 * S + Math.sin(a0) * L], [nx + Math.cos(a1) * L, ny - 100 * S + Math.sin(a1) * L]],
+         i % 2 ? "#06125a" : "#0a1f8f");
+  }
+
+  drawNeo(nx, ny + Math.round(Math.sin(t * 2) * 2 * S), S, "#000", t, neoFlash > 0, true);
+
+  // NEO's HP
+  const hx = nx - 30 * S, hy = 6 * S;
+  text("SPAMTON NEO", hx, hy, S, "#fff");
+  R(hx, hy + 7 * S, 60 * S, 4 * S, "#600");
+  R(hx, hy + 7 * S, Math.round(60 * S * neoHP / 100), 4 * S, "#3cff6a");
+
+  // party on the left
+  const PS = 2 * S;   // party drawn at double size
+  party.forEach((p, i) => {
+    const px = Math.round(W * 0.1 + i * 14 * S), py = Math.round(H * (0.3 + i * 0.22));
+    if (p.down) {
+      ctx.globalAlpha = 0.4;
+      p.draw(px, py, PS, t);
+      ctx.globalAlpha = 1;
+      text("DOWN", px - 7 * S, py - 20 * S, S, "#ff4040");
+    } else {
+      const shake = p.hit ? Math.round((Math.random() - 0.5) * 3 * S) : 0;
+      if (p.hit && Math.floor(t * 16) % 2) ctx.globalAlpha = 0.5;
+      p.draw(px + shake, py, PS, t);
+      ctx.globalAlpha = 1;
+    }
+  });
+  if (healFx) {
+    ctx.globalAlpha = healFx;
+    text("+HEAL", W * 0.12, H * 0.2, S, "#3cff6a");
+    ctx.globalAlpha = 1;
+  }
+
+  // battle box + TP bar
+  R(box.x - 2 * S, box.y - 2 * S, box.w + 4 * S, box.h + 4 * S, "#3cff6a");
+  R(box.x, box.y, box.w, box.h, "#000");
+  const tx = box.x - 14 * S, th = box.h;
+  R(tx, box.y, 6 * S, th, "#401800");
+  R(tx, box.y + th - Math.round(th * tp / 100), 6 * S, Math.round(th * tp / 100), tp >= 32 ? "#ffa000" : "#c06000");
+  text("TP", tx - 1 * S, box.y - 8 * S, S, "#ffa000");
+  text(`${Math.round(tp)}`, tx - 1 * S, box.y + th + 3 * S, S, "#ffa000");
+
+  // hazards
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(box.x - 120 * S, 0, W, H);
+  ctx.clip();
+  for (const h of hazards) {
+    if (h.type === "head") { if (!h.wait || h.wait < 0.3) spamHead(h.x, h.y, S); }
+    else if (h.type === "pipi") {
+      ellipse(h.x, h.y, 5 * S, 6 * S, "#000");
+      ellipse(h.x, h.y, 4 * S, 5 * S, h.fuse < 0.5 && Math.floor(t * 16) % 2 ? "#ff4040" : "#f4f4ff");
+      R(h.x - 2 * S, h.y - 1 * S, S, S, "#5070ff"); R(h.x + 1 * S, h.y + 1 * S, S, S, "#5070ff");
+    } else if (h.type === "pellet") {
+      R(h.x - S, h.y, 3 * S, S, "#fff"); R(h.x, h.y - S, S, 3 * S, "#fff");
+    } else if (h.type === "phone") {
+      if (h.warn > 0) {
+        if (Math.floor(t * 12) % 2) { ctx.globalAlpha = 0.35; R(h.x - h.w / 2, box.y, h.w, box.h, "#ff4040"); ctx.globalAlpha = 1; }
+      } else {
+        R(h.x - h.w / 2 - S, h.y - 16 * S, h.w + 2 * S, 18 * S, "#000");
+        R(h.x - h.w / 2, h.y - 15 * S, h.w, 16 * S, "#3cff6a");          // phone
+        R(h.x - h.w / 2 + 2 * S, h.y - 12 * S, h.w - 4 * S, 6 * S, "#123");
+        R(h.x - 3 * S, h.y - 26 * S, 6 * S, 11 * S, "#f2e8d8");           // the hand holding it
+      }
+    } else if (h.type === "wire") {
+      if (h.warn > 0) {
+        ctx.globalAlpha = Math.floor(t * 12) % 2 ? 0.7 : 0.25;
+        if (h.horiz) R(box.x, h.pos, box.w, 1, "#3cff6a"); else R(h.pos, box.y, 1, box.h, "#3cff6a");
+        ctx.globalAlpha = 1;
+      } else {
+        if (h.horiz) R(box.x, h.pos - S, box.w, 3 * S, "#3cff6a"); else R(h.pos - S, box.y, 3 * S, box.h, "#3cff6a");
+      }
+    }
+  }
+  ctx.restore();
+
+  // shots
+  for (const s of shots) {
+    if (s.big) { ellipse(s.x, s.y, 5 * S, 4 * S, "#ffe600"); ellipse(s.x, s.y, 3 * S, 2 * S, "#fff"); }
+    else R(s.x - 2 * S, s.y, 4 * S, S, "#ffe600");
+  }
+  for (const s of sparks) { ctx.globalAlpha = s.life * 2.5; R(s.x - S, s.y - S, 3 * S, 3 * S, "#fff"); }
+  ctx.globalAlpha = 1;
+
+  // the yellow soul (charging glow while Z is held)
+  if (!gameOver && (!hurt || Math.floor(t * 12) % 2)) {
+    if (charge > 0.15) {
+      ctx.globalAlpha = Math.min(1, charge) * (0.5 + 0.5 * Math.sin(t * 20));
+      ellipse(soul.x, soul.y, (4 + Math.min(1, charge) * 4) * S, (4 + Math.min(1, charge) * 4) * S, charge >= 0.9 ? "#fff" : "#ffe600");
+      ctx.globalAlpha = 1;
+    }
+    // the yellow soul lies on its side: round top to the left, point aiming right at NEO
+    const HEART = ["0110110", "1111111", "1111111", "0111110", "0011100", "0001000"];
+    ctx.fillStyle = "#ffe600";
+    HEART.forEach((row, j) => [...row].forEach((p, i) => p === "1" && ctx.fillRect(Math.round(soul.x + (j - 3) * S), Math.round(soul.y + (i - 3) * S), S, S)));
+  }
+
+  // NEO's speech
+  if (speechT > 0) {
+    const bw = textWidth(speech, S) + 8 * S, bx = Math.max(box.x + box.w + 4 * S, nx - 40 * S - bw), by = Math.round(H * 0.1);
+    R(bx - S, by - S, bw + 2 * S, 11 * S, "#000");
+    R(bx, by, bw, 9 * S, "#fff");
+    text(speech, bx + 4 * S, by + 2 * S, S, "#000");
+  }
+
+  // party HP panels along the bottom
+  const pw = Math.round(W / 3) - 4 * S, py = H - 22 * S;
+  party.forEach((p, i) => {
+    const x = 2 * S + i * (pw + 4 * S);
+    R(x, py, pw, 20 * S, "#000");
+    R(x, py, pw, S, p.col);
+    text(p.name, x + 4 * S, py + 4 * S, S, p.down ? "#ff4040" : p.col);
+    const bx = x + 4 * S, bw = pw - 50 * S;
+    text("HP", bx, py + 12 * S, S, "#fff");
+    R(bx + 10 * S, py + 12 * S, bw, 5 * S, "#700");
+    R(bx + 10 * S, py + 12 * S, Math.round(bw * p.hp / p.max), 5 * S, p.col);
+    text(`${p.hp}/${p.max}`, bx + 14 * S + bw, py + 12 * S, S, "#fff");
+  });
+
+  // controls hint, or the big messages
+  if (gameOver) {
+    const m = "STAY DETERMINED...";
+    text(m, box.x + box.w / 2 - textWidth(m, 2 * S) / 2, box.y + box.h / 2 - 5 * S, 2 * S, "#fff");
+  } else if (won) {
+    const m = "YOU WON!";
+    text(m, box.x + box.w / 2 - textWidth(m, 2 * S) / 2, box.y + box.h / 2 - 5 * S, 2 * S, "#ffe600");
+  } else {
+    ctx.globalAlpha = 0.6;
+    const m = "MOVE: ARROWS/WASD   SHOOT: Z (HOLD = BIG SHOT)   HEAL: C";
+    text(m, W / 2 - textWidth(m, S) / 2, py - 8 * S, S, "#9ab");
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ---------------------------------------------------------------- main loop
+let last = performance.now(), t = 0, tBattle = 0;
+function frame(now) {
+  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)) * opts.speed;   // never backwards
+  last = Math.max(last, now);
+  t += dt;
+  tBattle += dt;
+
+  if (mode === "battle" && tBattle - lastKey > 15 && KEYS.size === 0) { mode = "city"; modeFade = 0.5; }
+
+  if (mode === "battle") { updateBattle(dt, t); drawBattle(dt, t); }
+  else drawCity(dt, t);
+
+  if (modeFade > 0) {             // a quick white flash when switching between city and battle
+    modeFade -= dt;
+    ctx.globalAlpha = Math.max(0, modeFade * 2);
+    R(0, 0, W, H, "#fff");
+    ctx.globalAlpha = 1;
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+function livelyPropertyListener(name, val) {
+  if (name in opts) opts[name] = val;
+}
+</script>
+</body>
+</html>

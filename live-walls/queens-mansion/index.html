@@ -1,0 +1,174 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Queen's Mansion</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #020c14; overflow: hidden; }
+  canvas { width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// Queen's Mansion: her face on a giant screen, glowing acid pipes,
+// and a bubbling acid pool. Very high tech. Very Queen.
+const PIXEL = 4;
+const opts = { acid: "#3cff6a", speed: 1 };
+
+const c = document.getElementById("c");
+const ctx = c.getContext("2d");
+let W, H, S, bubbles = [], pipes = [], bits = [];
+
+const R = (x, y, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+function ellipse(cx, cy, rx, ry, col) {
+  ctx.fillStyle = col;
+  for (let y = -ry; y <= ry; y++) {
+    const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - (y * y) / (ry * ry))));
+    ctx.fillRect(Math.round(cx - half), Math.round(cy + y), half * 2 + 1, 1);
+  }
+}
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+function resize() {
+  W = c.width = Math.ceil(innerWidth / PIXEL);
+  H = c.height = Math.ceil(innerHeight / PIXEL);
+  S = Math.max(1, Math.round(H / 270));
+  // pipes: horizontal runs at different heights, plus some vertical drops
+  pipes = [];
+  for (let i = 0; i < 3; i++) pipes.push({ horiz: true, pos: Math.round(H * (0.62 + i * 0.07)), dir: i % 2 ? -1 : 1 });
+  for (const f of [0.08, 0.18, 0.82, 0.92]) pipes.push({ horiz: false, pos: Math.round(W * f), dir: 1 });
+  bubbles = [];
+  bits = Array.from({ length: 50 }, () => ({ x: rnd(0, W), y: rnd(0, H), v: rnd(3, 10) }));
+}
+addEventListener("resize", resize);
+resize();
+
+const QUEEN = [
+  "......BBBBBBBBB.......",
+  "....BBBBBBBBBLLLB.....",
+  "...BBBBBBBBBBBLLLLB...",
+  "..BBBBBBBBBBBBBLLLBB..",
+  ".BBBBBBBBBBBBBBBLLBBB.",
+  ".BBBBBBBBBBBBBBBBDDBB.",
+  "BBBBBBBBBBBBBBBBDKKDBB",
+  "BBBBBBBBBBBBBBBBDKKKDB",
+  "BKKKKBBBBBKKKKKBDKKKDB",
+  "KKKKKKKBKKKKKKKKDKKKDB",
+  "KKKKKKKKKKKKKKKKDKKKDB",
+  "KKKKKKKKKKKKKKKKDKBKDB",
+  ".KKKKKKKKKKKKKKKDKBKD.",
+  ".KKKKKKKKKKKKKKKDBBKD.",
+  ".BKKKKKKKKKKKKKBDB.KD.",
+  ".BWKKKKKMKKKKKWBD..D..",
+  "..BWWWWWMWWWWWWBD.....",
+  "..BWWWWWMWWWWWWD......",
+  "...WWWWWWWWWWWW.......",
+  "...WMWWWWWWWMW........",
+  "....WMMMMMMMW.........",
+  "....WWMWWMWWW.........",
+  ".....WWWWWWW..........",
+  "......WWWWW...........",
+  ".......WWW............",
+];
+const QUEEN_PAL = { B: "#1a8cff", L: "#7ec8ff", D: "#0a4ab8", K: "#000000", W: "#ffffff", M: "#1a6ad8" };
+
+function screenFace(cx, cy, w, h, t) {
+  // monitor frame
+  R(cx - w / 2 - 4, cy - h / 2 - 4, w + 8, h + 8, "#5a6a7a");
+  R(cx - w / 2 - 2, cy - h / 2 - 2, w + 4, h + 4, "#1a2a38");
+  // screen
+  const g = ctx.createLinearGradient(0, cy - h / 2, 0, cy + h / 2);
+  g.addColorStop(0, "#0c3a9a");
+  g.addColorStop(1, "#06205a");
+  ctx.fillStyle = g;
+  ctx.fillRect(cx - w / 2, cy - h / 2, w, h);
+  // her head, drawn from the user's reference: blue dome, wide black visor,
+  // dripping hair on the right, white pointed chin with a blue grin
+  const p = Math.max(1, Math.floor((h * 0.86) / QUEEN.length));
+  const qx = cx - (QUEEN[0].length * p) / 2;
+  const qy = cy - (QUEEN.length * p) / 2 + Math.round(Math.sin(t * 1.2) * 1.5);
+  QUEEN.forEach((row, j) => [...row].forEach((ch, i) => {
+    if (QUEEN_PAL[ch]) R(qx + i * p, qy + j * p, p, p, QUEEN_PAL[ch]);
+  }));
+  // a glint sweeps across the visor now and then
+  const sweep = (t % 6) / 1.2;
+  if (sweep < 1) {
+    const gx = Math.round(1 + sweep * 14);
+    R(qx + gx * p, qy + 9 * p, p, p, "#ffffff");
+    R(qx + (gx + 1) * p, qy + 10 * p, p, p, "#9ad0ff");
+  }
+  // scanlines
+  ctx.globalAlpha = 0.15;
+  for (let y = cy - h / 2 + ((t * 20) % 3); y < cy + h / 2; y += 3) R(cx - w / 2, y, w, 1, "#000");
+  ctx.globalAlpha = 1;
+}
+
+let last = performance.now(), t = 0;
+function frame(now) {
+  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)) * opts.speed;
+  last = Math.max(last, now);
+  t += dt;
+
+  R(0, 0, W, H, "#020c14");
+  // faint tech grid
+  ctx.globalAlpha = 0.12;
+  for (let x = 0; x < W; x += 16) R(x, 0, 1, H, "#28d0ff");
+  for (let y = 0; y < H; y += 16) R(0, y, W, 1, "#28d0ff");
+  ctx.globalAlpha = 1;
+
+  // drifting data bits
+  for (const b of bits) {
+    b.y -= b.v * dt;
+    if (b.y < 0) { b.y = H; b.x = rnd(0, W); }
+    ctx.globalAlpha = 0.5;
+    R(b.x, b.y, 1, 2, "#28d0ff");
+  }
+  ctx.globalAlpha = 1;
+
+  // pipes with glowing acid pulses flowing through them
+  for (const p of pipes) {
+    if (p.horiz) {
+      R(0, p.pos - 3, W, 7, "#22323e");
+      R(0, p.pos - 2, W, 1, "#4a6070");
+      for (let x = (t * 40 * p.dir) % 24 - 24; x < W + 24; x += 24) {
+        ctx.globalAlpha = 0.9;
+        R(x, p.pos - 1, 8, 3, opts.acid);
+      }
+      for (let x = 30; x < W; x += 60) R(x, p.pos - 4, 3, 9, "#5a7080");   // joints
+    } else {
+      R(p.pos - 3, 0, 7, H * 0.62, "#22323e");
+      for (let y = (t * 40) % 24 - 24; y < H * 0.62; y += 24) R(p.pos - 1, y, 3, 8, opts.acid);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // the big screen
+  screenFace(W / 2, H * 0.32, H * 0.62, H * 0.42, t);
+
+  // acid pool with bubbles
+  const poolY = Math.round(H * 0.84);
+  R(0, poolY, W, H - poolY, "#0b3a1a");
+  for (let x = 0; x < W; x++) {
+    const wave = Math.round(Math.sin(x * 0.08 + t * 2) * 1.5);
+    R(x, poolY + wave, 1, 2, opts.acid);
+  }
+  if (Math.random() < 0.3) bubbles.push({ x: rnd(0, W), y: H, r: Math.round(rnd(1, 3)), v: rnd(8, 18) });
+  for (const b of bubbles) {
+    b.y -= b.v * dt;
+    if (b.y < poolY) { b.pop = true; continue; }
+    ellipse(b.x, b.y, b.r, b.r, opts.acid);
+    if (b.r > 1) ellipse(b.x, b.y, b.r - 1, b.r - 1, "#0b3a1a");
+  }
+  bubbles = bubbles.filter((b) => !b.pop);
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+function livelyPropertyListener(name, val) {
+  if (name in opts) opts[name] = val;
+}
+</script>
+</body>
+</html>

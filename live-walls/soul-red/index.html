@@ -1,0 +1,352 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Soul Red</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  canvas { width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="c" tabindex="0"></canvas>
+<script>
+// Soul Red: a little playable battle, in black and white (only the soul and HP bar have color). Flowey shoots pellets at your soul.
+// Arrow keys / WASD move the soul (click the desktop first so it gets the keys).
+// Leave it alone for a few seconds and the soul dodges by itself.
+const PIXEL = 4;
+const opts = { soul: "#ff1a1a", speed: 1, bullets: 1, flowey: true };
+
+const c = document.getElementById("c");
+const ctx = c.getContext("2d");
+let W, H, S, box, soul, bullets = [], embers = [];
+const MAXHP = 20;
+let hp = MAXHP, hurt = 0, dead = 0, t = 0;
+let mode = "auto", lastKey = -99;
+let attack = 0, attackT = 0, nextAttack = 1.5;
+let face = "smile", faceT = 0, say = "HOWDY!", sayT = 4;
+
+const R = (x, y, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+function ellipse(cx, cy, rx, ry, col) {
+  ctx.fillStyle = col;
+  for (let y = -ry; y <= ry; y++) {
+    const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - (y * y) / (ry * ry))));
+    ctx.fillRect(Math.round(cx - half), Math.round(cy + y), half * 2 + 1, 1);
+  }
+}
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+// ---------- tiny 3x5 pixel font
+const FONT = {
+  A: "010101111101101", B: "110101110101110", C: "011100100100011", D: "110101101101110", E: "111100110100111",
+  F: "111100110100100", G: "011100101101011", H: "101101111101101", I: "111010010010111", J: "001001001101010",
+  K: "101101110101101", L: "100100100100111", M: "101111111101101", N: "110101101101101", O: "010101101101010",
+  P: "110101110100100", Q: "010101101110011", R: "110101110101101", S: "011100010001110", T: "111010010010010",
+  U: "101101101101111", V: "101101101101010", W: "101101111111101", X: "101101010101101", Y: "101101010010010",
+  Z: "111001010100111", "0": "111101101101111", "1": "010110010010111", "2": "111001111100111",
+  "3": "111001111001111", "4": "101101111001001", "5": "111100111001111", "6": "111100111101111",
+  "7": "111001001001001", "8": "111101111101111", "9": "111101111001111", "/": "001001010100100",
+  "!": "010010010000010", ".": "000000000000010", ",": "000000000010100", "-": "000000111000000",
+  "'": "010010000000000", "?": "110001010000010", "*": "000101010101000", " ": "000000000000000",
+};
+function text(str, x, y, s, col) {
+  ctx.fillStyle = col;
+  for (const ch of str.toUpperCase()) {
+    const g = FONT[ch] || FONT[" "];
+    for (let i = 0; i < 15; i++) if (g[i] === "1") ctx.fillRect(Math.round(x + (i % 3) * s), Math.round(y + Math.floor(i / 3) * s), s, s);
+    x += 4 * s;
+  }
+  return x;
+}
+const textWidth = (str, s) => str.length * 4 * s - s;
+
+// ---------- the soul
+const HEART = ["0110110", "1111111", "1111111", "0111110", "0011100", "0001000"];
+function heart(x, y, s, col, split = 0) {
+  ctx.fillStyle = col;
+  HEART.forEach((row, j) => [...row].forEach((p, i) => {
+    if (p !== "1") return;
+    const off = split ? (i < 4 ? -split : split) : 0;   // broken heart halves drift apart
+    ctx.fillRect(Math.round(x + i * s + off), Math.round(y + j * s + (split ? j % 2 : 0)), s, s);
+  }));
+}
+
+// ---------- Flowey (drawn from your reference: petals, tall eyes, big grin, curly stem)
+function flowey(x, y, s, t) {
+  const sway = Math.round(Math.sin(t * 1.4) * s);
+  const fx = x + sway;
+  // curly stem down to the box, with two leaves at the bottom
+  const stemTop = y + 8 * s, stemBot = box.y - 3 * s;
+  for (let yy = stemTop; yy < stemBot; yy++) {
+    const k = (yy - stemTop) / Math.max(1, stemBot - stemTop);
+    const sx = x + sway * (1 - k) + Math.sin(k * Math.PI * 1.6) * 3 * s;
+    R(sx - 2 * s, yy, 5 * s, 1, "#000");
+    R(sx - 1 * s, yy, 3 * s, 1, "#fff");
+  }
+  for (const side of [-1, 1]) {
+    ellipse(x + side * 5 * s, stemBot - s, 5 * s, 3 * s, "#000");
+    ellipse(x + side * 5 * s, stemBot - s, 4 * s, 2 * s, "#fff");
+    R(x + side * 5 * s - (side > 0 ? 0 : 2 * s), stemBot - s, 3 * s, s, "#000");
+  }
+  // six petals: two on top, two at the sides, two below
+  const petals = [[-6, -9, 5, 4], [6, -9, 5, 4], [-13, -1, 6, 5], [13, -1, 6, 5], [-9, 8, 5, 4], [9, 8, 5, 4]];
+  for (const [px, py, rx, ry] of petals) {
+    ellipse(fx + px * s, y + py * s, (rx + 1) * s, (ry + 1) * s, "#000");
+    ellipse(fx + px * s, y + py * s, rx * s, ry * s, "#fff");
+  }
+  // face
+  ellipse(fx, y, 10 * s, 8 * s, "#000");
+  ellipse(fx, y, 9 * s, 7 * s, "#ffffff");
+  if (face === "evil") {
+    // angry eyes: black wedges whose inner ends point down toward the middle,
+    // each with a tiny white pupil (left eye drawn, right eye mirrored)
+    const EYE = ["1100", "1111", "0111"];
+    for (const side of [-1, 1]) {
+      EYE.forEach((row, j) => [...row].forEach((p, i) => {
+        if (p !== "1") return;
+        const col = side < 0 ? -6 + i : 5 - i;
+        R(fx + col * s, y + (j - 5) * s, s, s, "#000");
+      }));
+      R(fx + (side < 0 ? -3 : 2) * s, y - 4 * s, s, s, "#fff");
+    }
+    // big toothy grin like the reference: black mouth curving up at the corners,
+    // packed with two rows of square white teeth (1 = black, w = white tooth)
+    const GRIN = [
+      "11...........11",
+      "111111111111111",
+      "1w1w1w1w1w1w1w1",
+      "111111111111111",
+      ".1w1w1w1w1w1w1.",
+      "..11111111111..",
+    ];
+    GRIN.forEach((row, j) => [...row].forEach((p, i) => {
+      if (p === "1") R(fx + (i - 7) * s, y + j * s, s, s, "#000");
+      else if (p === "w") R(fx + (i - 7) * s, y + j * s, s, s, "#fff");
+    }));
+  } else {
+    const blink = (t % 4) < 0.12;
+    R(fx - 3 * s, y - (blink ? 2 : 5) * s, 2 * s, (blink ? 1 : 5) * s, "#000");   // tall eyes
+    R(fx + 2 * s, y - (blink ? 2 : 5) * s, 2 * s, (blink ? 1 : 5) * s, "#000");
+    R(fx - 6 * s, y + 2 * s, s, s, "#000");                                      // smile corners
+    R(fx + 6 * s, y + 2 * s, s, s, "#000");
+    R(fx - 5 * s, y + 3 * s, 11 * s, 3 * s, "#000");                             // grin
+    R(fx - 4 * s, y + 4 * s, 9 * s, s, "#fff");                                  // teeth
+  }
+}
+
+// ---------- setup
+function resize() {
+  W = c.width = Math.ceil(innerWidth / PIXEL);
+  H = c.height = Math.ceil(innerHeight / PIXEL);
+  S = Math.max(1, Math.round(H / 270));
+  const bw = Math.round(H * 0.55), bh = Math.round(H * 0.34);
+  box = { x: Math.round(W / 2 - bw / 2), y: Math.round(H * 0.6 - bh / 2), w: bw, h: bh };
+  soul = { x: box.x + bw / 2, y: box.y + bh / 2, vx: 0, vy: 0, tx: box.x + bw / 2, ty: box.y + bh / 2 };
+  bullets = [];
+  embers = [];
+}
+addEventListener("resize", resize);
+resize();
+const floweyPos = () => ({ x: Math.round(W / 2), y: box.y - 30 * S });
+
+// ---------- keyboard
+const keys = new Set();
+const KEYMAP = { ArrowUp: "u", KeyW: "u", ArrowDown: "d", KeyS: "d", ArrowLeft: "l", KeyA: "l", ArrowRight: "r", KeyD: "r" };
+addEventListener("keydown", (e) => {
+  const k = KEYMAP[e.code];
+  if (!k) return;
+  keys.add(k);
+  if (!e.repeat && !dead) {   // a quick tap still nudges the soul a little
+    const n = 2 * S;
+    soul.x += k === "r" ? n : k === "l" ? -n : 0;
+    soul.y += k === "d" ? n : k === "u" ? -n : 0;
+  }
+  if (mode === "auto") { mode = "player"; say = "LET'S PLAY!"; sayT = 2.5; }
+  lastKey = t;
+  e.preventDefault();
+});
+addEventListener("keyup", (e) => { const k = KEYMAP[e.code]; if (k) keys.delete(k); });
+addEventListener("blur", () => keys.clear());
+c.addEventListener("mousedown", () => c.focus());
+
+// ---------- Flowey's attacks (all of them use his white pellets)
+const ATTACKS = [
+  function fan() {            // pellets gather around Flowey, pause, then fire at you
+    const f = floweyPos(), n = 5 + Math.round(2 * opts.bullets);
+    for (let i = 0; i < n; i++) {
+      const a = Math.PI + (i / (n - 1)) * Math.PI;
+      bullets.push({ x: f.x + Math.cos(a) * 20 * S, y: f.y + Math.sin(a) * 14 * S, wait: 0.9 + i * 0.05, aim: true, sp: 55 });
+    }
+    say = ["FRIENDLINESS PELLETS!", "CATCH THESE!", "HEE HEE HEE"][Math.floor(Math.random() * 3)];
+    sayT = 2;
+  },
+  function spray() {          // a spray of pellets raining down from him
+    const f = floweyPos();
+    for (let i = 0; i < 14 * opts.bullets; i++) {
+      bullets.push({ x: f.x + rnd(-6, 6) * S, y: f.y + 10 * S, vx: rnd(-35, 35), vy: rnd(25, 50), wait: i * 0.12 });
+    }
+  },
+  function ring() {           // a ring around your soul closes in - find the gap!
+    const n = 18, gap = Math.floor(Math.random() * n), r = 42 * S;
+    for (let i = 0; i < n; i++) {
+      if (i === gap || i === (gap + 1) % n) continue;
+      const a = (i / n) * Math.PI * 2;
+      bullets.push({ x: soul.x + Math.cos(a) * r, y: soul.y + Math.sin(a) * r, vx: -Math.cos(a) * 16, vy: -Math.sin(a) * 16, wait: 0.7 });
+    }
+    say = "DIE.";
+    sayT = 1.5;
+    face = "evil"; faceT = 1.5;
+  },
+];
+
+function hit() {
+  if (hurt || dead) return;
+  hp = Math.max(0, hp - (mode === "player" ? 3 : 2));
+  hurt = 1;
+  face = "evil"; faceT = 1.2;
+  if (hp === 0) { dead = 3; bullets = []; say = "HA HA HA!"; sayT = 2; }
+}
+
+// ---------- main loop
+let last = performance.now();
+function frame(now) {
+  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)) * opts.speed;   // never backwards
+  last = Math.max(last, now);
+  t += dt;
+  if (mode === "player" && t - lastKey > 8 && keys.size === 0) { mode = "auto"; say = "GIVING UP?"; sayT = 2; }
+
+  // attacks
+  if (!dead) {
+    attackT += dt;
+    if (attackT > nextAttack) {
+      ATTACKS[attack % ATTACKS.length]();
+      attack++;
+      attackT = 0;
+      nextAttack = 3.2 / Math.max(0.3, opts.bullets);
+    }
+  }
+
+  // move the soul
+  if (!dead) {
+    if (mode === "player") {
+      const sp = 70;
+      soul.vx = ((keys.has("r") ? 1 : 0) - (keys.has("l") ? 1 : 0)) * sp;
+      soul.vy = ((keys.has("d") ? 1 : 0) - (keys.has("u") ? 1 : 0)) * sp;
+    } else {
+      // autopilot: steer away from nearby pellets, wander otherwise
+      let ax = 0, ay = 0;
+      for (const b of bullets) {
+        if (b.wait > 0.3) continue;
+        const dx = soul.x - b.x, dy = soul.y - b.y, d2 = dx * dx + dy * dy;
+        if (d2 < 900 && d2 > 0.01) { const f = 1600 / d2; ax += dx * f / Math.sqrt(d2); ay += dy * f / Math.sqrt(d2); }
+      }
+      if (Math.random() < 0.01) { soul.tx = rnd(box.x + 8, box.x + box.w - 8); soul.ty = rnd(box.y + 8, box.y + box.h - 8); }
+      ax += (soul.tx - soul.x) * 0.8; ay += (soul.ty - soul.y) * 0.8;
+      soul.vx = (soul.vx + ax * dt) * 0.88; soul.vy = (soul.vy + ay * dt) * 0.88;
+      const sp = Math.hypot(soul.vx, soul.vy), max = 55;
+      if (sp > max) { soul.vx *= max / sp; soul.vy *= max / sp; }
+    }
+    soul.x = Math.min(box.x + box.w - 5 * S, Math.max(box.x + 4 * S, soul.x + soul.vx * dt));
+    soul.y = Math.min(box.y + box.h - 4 * S, Math.max(box.y + 4 * S, soul.y + soul.vy * dt));
+  }
+
+  // pellets
+  hurt = Math.max(0, hurt - dt);
+  for (const b of bullets) {
+    if (b.wait > 0) {
+      b.wait -= dt;
+      if (b.wait <= 0 && b.aim) {        // launch toward where the soul is right now
+        const dx = soul.x - b.x, dy = soul.y - b.y, d = Math.hypot(dx, dy) || 1;
+        b.vx = dx / d * b.sp; b.vy = dy / d * b.sp;
+      }
+      continue;
+    }
+    b.x += b.vx * dt; b.y += b.vy * dt;
+    if (Math.abs(b.x - soul.x) < 3 * S && Math.abs(b.y - soul.y) < 3 * S) { hit(); b.dead = true; }
+  }
+  bullets = bullets.filter((b) => !b.dead && b.x > -20 && b.x < W + 20 && b.y > -20 && b.y < H + 20);
+
+  // healing / coming back
+  if (dead) {
+    dead -= dt;
+    if (dead <= 0) { dead = 0; hp = MAXHP; say = "AGAIN?"; sayT = 2; }
+  } else if (mode === "auto" && Math.random() < 0.8 * dt) hp = Math.min(MAXHP, hp + 1);
+  faceT -= dt; if (faceT <= 0) face = "smile";
+  sayT -= dt;
+
+  // ---------- draw
+  R(0, 0, W, H, "#000");
+  const beat = Math.pow(Math.max(0, Math.sin(t * 2.4)), 8);
+  const glow = ctx.createRadialGradient(W / 2, box.y + box.h / 2, 0, W / 2, box.y + box.h / 2, H * 0.8);
+  glow.addColorStop(0, `rgba(255,255,255,${0.04 + beat * 0.04})`);
+  glow.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
+  if (Math.random() < 0.5) embers.push({ x: rnd(0, W), y: H, v: rnd(4, 12) });
+  for (const e of embers) {
+    e.y -= e.v * dt;
+    ctx.globalAlpha = Math.max(0, e.y / H) * 0.6;
+    R(e.x, e.y, 1, 1, "#888");
+  }
+  embers = embers.filter((e) => e.y > 0);
+  ctx.globalAlpha = 1;
+
+  const f = floweyPos();
+  if (opts.flowey) flowey(f.x, f.y, S, t);
+
+  // battle box
+  R(box.x - 2 * S, box.y - 2 * S, box.w + 4 * S, box.h + 4 * S, "#fff");
+  R(box.x, box.y, box.w, box.h, "#000");
+
+  // pellets: little spinning white seeds
+  for (const b of bullets) {
+    const spin = Math.floor(t * 10 + b.x) % 2;
+    ctx.globalAlpha = b.wait > 0 ? 0.6 + 0.4 * Math.sin(t * 20) : 1;
+    if (spin) { R(b.x - S, b.y, 3 * S, S, "#fff"); R(b.x, b.y - S, S, 3 * S, "#fff"); }
+    else { R(b.x - S, b.y - S, S, S, "#fff"); R(b.x + S, b.y - S, S, S, "#fff"); R(b.x, b.y, S, S, "#fff"); R(b.x - S, b.y + S, S, S, "#fff"); R(b.x + S, b.y + S, S, S, "#fff"); }
+  }
+  ctx.globalAlpha = 1;
+
+  // soul
+  if (dead) {
+    heart(soul.x - 3 * S, soul.y - 3 * S, S, opts.soul, Math.min(4, (3 - dead) * 6) * S);
+    if (dead < 1.6) {
+      const msg = "STAY DETERMINED...";
+      text(msg, W / 2 - textWidth(msg, S) / 2, box.y + box.h / 2 + 12 * S, S, "#fff");
+    }
+  } else if (!hurt || Math.floor(t * 12) % 2) {
+    heart(soul.x - 3 * S, soul.y - 3 * S, S, opts.soul);
+  }
+
+  // Flowey's speech bubble
+  if (opts.flowey && sayT > 0) {
+    const bx = f.x + 18 * S, by = f.y - 14 * S, w = textWidth(say, S) + 8 * S;
+    R(bx - S, by - S, w + 2 * S, 11 * S, "#000");
+    R(bx, by, w, 9 * S, "#fff");
+    R(bx - 3 * S, by + 4 * S, 3 * S, 2 * S, "#fff");
+    text(say, bx + 4 * S, by + 2 * S, S, "#000");
+  }
+
+  // HP bar + hint
+  const y = box.y + box.h + 8 * S;
+  let x = text("LV 1", box.x, y, S, "#fff");
+  x = text("HP", x + 8 * S, y, S, "#fff") + 4 * S;
+  const barW = 24 * S;
+  R(x, y, barW, 5 * S, "#8a0b0b");
+  R(x, y, Math.round(barW * hp / MAXHP), 5 * S, "#ffe600");
+  text(`${hp} / ${MAXHP}`, x + barW + 6 * S, y, S, "#fff");
+  const hint = mode === "player" ? "YOU'RE IN CONTROL!" : "CLICK THE DESKTOP, THEN USE ARROWS OR WASD";
+  ctx.globalAlpha = mode === "player" ? 0.8 : 0.45 + 0.2 * Math.sin(t * 2);
+  text(hint, W / 2 - textWidth(hint, S) / 2, y + 12 * S, S, mode === "player" ? "#fff" : "#aaa");
+  ctx.globalAlpha = 1;
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+function livelyPropertyListener(name, val) {
+  if (name in opts) opts[name] = val;
+}
+</script>
+</body>
+</html>

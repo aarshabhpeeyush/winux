@@ -1,0 +1,20 @@
+{
+  "AppVersion": "2.2.1.0",
+  "Title": "Soul Red",
+  "Thumbnail": null,
+  "Preview": null,
+  "Desc": "A red soul dodging bullets in a battle box. Made for WinUx.",
+  "Author": "WinUx",
+  "License": "",
+  "Contact": "",
+  "Type": 1,
+  "FileName": "index.html",
+  "Arguments": null,
+  "IsAbsolutePath": false,
+  "Id": null,
+  "Tags": [
+    "winux",
+    "playable"
+  ],
+  "Version": 0
+}

@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WinUx</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <script>window.WINUX_TOKEN = "__TOKEN__";</script>
+</head>
+<body>
+  <div class="app">
+    <aside class="side">
+      <div class="logo box">
+        <span class="logo-text">WinUx</span>
+        <span class="logo-sub">* customize everything. <span id="version" class="dim"></span></span>
+      </div>
+
+      <nav class="menu box" id="menu">
+        <button data-tab="colors" class="active">COLORS</button>
+        <button data-tab="wallpaper">WALLPAPER</button>
+        <button data-tab="live">LIVE WALLS</button>
+        <button data-tab="taskbar">TASKBAR</button>
+        <button data-tab="widgets">WIDGETS</button>
+        <button data-tab="looks">ICONS+SOUNDS</button>
+        <button data-tab="art">ART → THEME</button>
+        <button data-tab="themes">THEMES</button>
+        <button data-tab="backup">BACKUP</button>
+      </nav>
+
+      <div class="now box" id="now">
+        <div class="now-title">CURRENT LOOK</div>
+        <div class="now-row"><span class="dot" id="nowAccent"></span><span id="nowAccentText">—</span></div>
+        <div class="now-row" id="nowMode">—</div>
+        <div class="now-row" id="nowLive"></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <!-- COLORS -->
+      <section class="tab box" id="tab-colors">
+        <h2>COLORS</h2>
+
+        <div class="group">
+          <div class="label">* Apps (File Explorer, Settings, most programs)</div>
+          <div class="seg" data-key="appsDark">
+            <button data-val="true">DARK</button><button data-val="false">LIGHT</button>
+          </div>
+        </div>
+
+        <div class="group">
+          <div class="label">* Windows (taskbar, Start menu)</div>
+          <div class="seg" data-key="systemDark">
+            <button data-val="true">DARK</button><button data-val="false">LIGHT</button>
+          </div>
+        </div>
+
+        <div class="group">
+          <div class="label">* Accent color</div>
+          <div class="swatches" id="swatches"></div>
+          <label class="custom-color">
+            <input type="color" id="customColor">
+            <span>PICK ANY COLOR</span>
+          </label>
+        </div>
+
+        <div class="group toggles">
+          <label class="toggle"><input type="checkbox" data-key="transparency"><span>See-through effects</span></label>
+          <label class="toggle"><input type="checkbox" data-key="accentOnTaskbar"><span>Accent on taskbar &amp; Start <small>(needs Windows = DARK)</small></span></label>
+          <label class="toggle"><input type="checkbox" data-key="accentOnTitlebars"><span>Accent on window title bars</span></label>
+        </div>
+      </section>
+
+      <!-- WALLPAPER -->
+      <section class="tab box hidden" id="tab-wallpaper">
+        <h2>WALLPAPER</h2>
+        <div class="row">
+          <label class="btn">
+            + ADD IMAGE
+            <input type="file" id="wallUpload" accept=".png,.jpg,.jpeg,.bmp" hidden>
+          </label>
+          <div class="label inline">Fit:</div>
+          <select id="wallStyle">
+            <option value="fill">Fill</option>
+            <option value="fit">Fit</option>
+            <option value="stretch">Stretch</option>
+            <option value="center">Center</option>
+            <option value="tile">Tile</option>
+            <option value="span">Span</option>
+          </select>
+        </div>
+        <div class="wall-filter seg" id="wallFilter">
+          <button data-val="all" class="on">ALL</button>
+          <button data-val="yours">YOURS</button>
+          <button data-val="art">YOUR ART</button>
+          <button data-val="windows">WINDOWS</button>
+        </div>
+        <div class="walls" id="walls"></div>
+      </section>
+
+      <!-- LIVE WALLPAPERS -->
+      <section class="tab box hidden" id="tab-live">
+        <h2>LIVE WALLS</h2>
+        <p class="hint" id="liveMissing" hidden>* Lively Wallpaper isn't installed, so live wallpapers can't play yet.</p>
+        <p class="hint" id="webviewMissing" hidden>* WinUx's live walls need Microsoft's free WebView2 Runtime, and it isn't installed.
+          Get it at <b>go.microsoft.com/fwlink/p/?LinkId=2124703</b>, or run <b>install.bat</b> again.</p>
+        <div id="liveBody">
+          <p class="hint">* Animated wallpapers, powered by Lively. They pause by themselves when you play a game.</p>
+          <div class="row">
+            <label class="btn">
+              + ADD VIDEO / GIF
+              <input type="file" id="liveUpload" accept=".mp4,.webm,.mov,.mkv,.gif" hidden>
+            </label>
+            <button class="btn danger" id="liveStop">STOP LIVE WALLPAPER</button>
+          </div>
+          <label class="toggle"><input type="checkbox" id="liveKeyboard"><span>Let wallpapers use my keyboard
+            <small>(for games like Soul Red - click the desktop, then play)</small></span></label>
+          <div class="seg wall-filter" id="liveFilter">
+            <button data-val="all" class="on">ALL</button>
+            <button data-val="winux">WINUX</button>
+            <button data-val="yours">YOURS</button>
+            <button data-val="lively">LIVELY</button>
+          </div>
+          <div class="walls" id="liveWalls"></div>
+        </div>
+      </section>
+
+      <!-- TASKBAR -->
+      <section class="tab box hidden" id="tab-taskbar">
+        <h2>TASKBAR</h2>
+
+        <div class="group" id="tbLookGroup">
+          <div class="label">* Taskbar look <small class="dim">(TranslucentTB)</small></div>
+          <div class="seg" data-key="tbStyle">
+            <button data-val="normal">NORMAL</button>
+            <button data-val="clear">SEE-THROUGH</button>
+            <button data-val="blur">BLUR</button>
+            <button data-val="acrylic">GLASS</button>
+            <button data-val="opaque">SOLID</button>
+          </div>
+          <div class="row">
+            <label class="custom-color">
+              <input type="color" id="tbColor">
+              <span>TINT COLOR</span>
+            </label>
+            <label class="slider">
+              <span>Tint strength</span>
+              <input type="range" id="tbOpacity" min="0" max="100" step="5">
+              <b id="tbOpacityVal"></b>
+            </label>
+          </div>
+          <div class="row">
+            <button class="btn small" id="tbUseAccent">USE MY ACCENT COLOR</button>
+            <label class="toggle"><input type="checkbox" id="tbLine"><span>Thin line on top</span></label>
+          </div>
+          <div class="label">* When a window is full screen</div>
+          <div class="seg" data-key="tbMax">
+            <button data-val="same">KEEP THIS LOOK</button>
+            <button data-val="acrylic">GLASS</button>
+            <button data-val="opaque">SOLID</button>
+            <button data-val="normal">NORMAL</button>
+          </div>
+        </div>
+        <p class="hint" id="tbMissing" hidden>* TranslucentTB isn't installed, so taskbar looks are off.</p>
+
+        <div class="restart-note" id="tbRestart" hidden>
+          <span>* Icon position, Search and Task View show up after the taskbar restarts.
+            It blinks for a second, and open File Explorer windows will close.</span>
+          <button class="btn primary" id="tbRestartBtn">RESTART TASKBAR</button>
+        </div>
+
+        <div class="group" id="tbAlignGroup">
+          <div class="label">* Icons</div>
+          <div class="seg" data-key="taskbarAlign">
+            <button data-val="center">CENTER</button><button data-val="left">LEFT</button>
+          </div>
+        </div>
+        <div class="group">
+          <div class="label">* Search</div>
+          <div class="seg" data-key="searchMode">
+            <button data-val="hidden">HIDDEN</button>
+            <button data-val="icon">ICON</button>
+            <button data-val="box">BOX</button>
+            <button data-val="label">ICON + LABEL</button>
+          </div>
+        </div>
+        <div class="group toggles">
+          <label class="toggle"><input type="checkbox" data-tb="taskView"><span>Task View button</span></label>
+          <label class="toggle"><input type="checkbox" data-tb="autoHide"><span>Auto-hide the taskbar</span></label>
+        </div>
+
+        <div class="group">
+          <div class="label">* Mod shop <small class="dim">(Windhawk)</small></div>
+          <p class="hint" id="whMissing" hidden>* Windhawk isn't installed, so mods are off.</p>
+          <p class="hint small" id="whHow">* These go even further: new taskbar shapes, Start menu styles and more.
+            Click one, then in Windhawk go to <b>Explore</b>, search the name and click <b>Install</b>.
+            Its <b>Settings</b> tab is where you pick a theme. Come back here and it'll say INSTALLED.</p>
+          <div class="mods" id="mods"></div>
+        </div>
+      </section>
+
+      <!-- WIDGETS -->
+      <section class="tab box hidden" id="tab-widgets">
+        <h2>WIDGETS</h2>
+        <p class="hint" id="rmMissing" hidden>* Rainmeter isn't installed, so widgets are off.</p>
+        <div id="rmBody">
+          <p class="hint">* Desktop widgets, powered by Rainmeter. Drag them anywhere on your desktop.
+            They use your accent color.</p>
+          <div class="label">* WinUx widgets</div>
+          <div class="mods" id="winuxWidgets"></div>
+          <div class="label">* Your other widgets</div>
+          <p class="hint small">* These were already on your PC. WinUx can turn them on and off, and never changes them.</p>
+          <div id="yourWidgets"></div>
+        </div>
+      </section>
+
+      <!-- ICONS + CURSORS + SOUNDS -->
+      <section class="tab box hidden" id="tab-looks">
+        <h2>ICONS+SOUNDS</h2>
+
+        <div class="label">* Mouse cursor</div>
+        <div class="looks" data-key="cursors">
+          <button class="look" data-val="default"><div class="look-pic plain">WINDOWS</div><div class="look-name">Windows</div></button>
+          <button class="look" data-val="pixel"><img class="look-pic" src="/gen/previews/cursors-pixel.png" alt=""><div class="look-name">Pixel</div></button>
+          <button class="look" data-val="pixel-accent"><img class="look-pic" id="accentCursorPic" src="/gen/previews/cursors-pixel-accent.png" alt=""><div class="look-name">Pixel Accent</div></button>
+          <button class="look" data-val="soul"><img class="look-pic" src="/gen/previews/cursors-soul.png" alt=""><div class="look-name">Soul</div></button>
+        </div>
+
+        <div class="label">* Desktop icons <small class="dim">(This PC, Recycle Bin, your folder, Network)</small></div>
+        <div class="looks" data-key="icons">
+          <button class="look" data-val="default"><div class="look-pic plain">WINDOWS</div><div class="look-name">Windows</div></button>
+          <button class="look" data-val="pixel"><img class="look-pic" src="/gen/previews/icons-pixel.png" alt=""><div class="look-name">Pixel</div></button>
+        </div>
+
+        <div class="label">* Sounds</div>
+        <div class="looks" data-key="sounds">
+          <button class="look" data-val="default"><div class="look-pic plain">WINDOWS</div><div class="look-name">Windows</div></button>
+          <button class="look" data-val="chiptune"><div class="look-pic plain">♪ 8-BIT ♪</div><div class="look-name">Chiptune</div></button>
+          <button class="look" data-val="silent"><div class="look-pic plain">. . .</div><div class="look-name">Silent</div></button>
+        </div>
+        <p class="hint small">* Hear the chiptune sounds:</p>
+        <div class="widget-row" id="soundTests"></div>
+      </section>
+
+      <!-- ART -> THEME -->
+      <section class="tab box hidden" id="tab-art">
+        <h2>ART → THEME</h2>
+        <p class="hint">* Draw something in FireAlpaca, then <b>File → Export</b> it as a PNG.<br>
+          * Drop it here. WinUx reads its colors and builds a whole look from it.</p>
+
+        <label class="drop" id="artDrop">
+          <input type="file" id="artUpload" accept=".png,.jpg,.jpeg,.bmp" hidden>
+          <span id="artDropText">DROP YOUR ART HERE<br><small>or click to choose</small></span>
+          <img id="artPreview" alt="" hidden>
+        </label>
+
+        <div id="artResult" hidden>
+          <div class="label">* Colors found in your art (click one to make it the accent)</div>
+          <div class="swatches" id="artColors"></div>
+          <div class="art-summary" id="artSummary"></div>
+          <div class="row">
+            <label class="toggle"><input type="checkbox" id="artUseWall" checked><span>Use my art as the wallpaper</span></label>
+            <select id="artStyle">
+              <option value="fill">Fill</option>
+              <option value="fit">Fit</option>
+              <option value="center">Center</option>
+              <option value="tile">Tile</option>
+            </select>
+          </div>
+          <div class="row">
+            <input type="text" id="artName" placeholder="Theme name" maxlength="40">
+            <button class="btn primary" id="artApply">APPLY + SAVE THEME</button>
+          </div>
+          <p class="hint small">* Want something fancier? Your art is saved in <code>winux/art-inbox</code>.
+            Tell Claude: <i>"make a WinUx theme from my art"</i>.</p>
+        </div>
+      </section>
+
+      <!-- THEMES -->
+      <section class="tab box hidden" id="tab-themes">
+        <h2>THEMES</h2>
+        <div class="row">
+          <input type="text" id="themeName" placeholder="Name this look..." maxlength="40">
+          <button class="btn primary" id="saveTheme">SAVE CURRENT LOOK</button>
+        </div>
+        <div class="label">* Your themes</div>
+        <div class="themes" id="myThemes"></div>
+        <div class="label">* Built-in</div>
+        <div class="themes" id="presetThemes"></div>
+      </section>
+
+      <!-- BACKUP -->
+      <section class="tab box hidden" id="tab-backup">
+        <h2>BACKUP</h2>
+        <p class="hint">* WinUx saved your original look the first time it ran<span id="backupDate"></span>.<br>
+          * You can always go back to it.</p>
+        <div class="row">
+          <button class="btn danger" id="restore">RESTORE MY ORIGINAL WINDOWS</button>
+        </div>
+        <p class="hint">* Taskbar colors not changing? Restarting the taskbar fixes it. It blinks for a second.</p>
+        <div class="row">
+          <button class="btn" id="refreshTaskbar">RESTART TASKBAR</button>
+        </div>
+
+        <div class="label">* Start with Windows</div>
+        <p class="hint small">* Colors, cursors, icons and sounds stay on their own after a restart.
+          These programs keep the moving parts going.</p>
+        <div class="toggles" id="startupList"></div>
+      </section>
+
+      <div class="dialog box" id="dialog"><span class="star">*</span><span id="dialogText"></span></div>
+    </main>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>

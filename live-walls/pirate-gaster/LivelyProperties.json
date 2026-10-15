@@ -1,0 +1,5 @@
+{
+  "glow": { "type": "color", "value": "#2ba7b8", "text": "Glow color" },
+  "speed": { "type": "slider", "value": 1, "min": 0.2, "max": 3, "step": 0.1, "text": "Speed" },
+  "glitch": { "type": "checkbox", "value": true, "text": "Glitches" }
+}

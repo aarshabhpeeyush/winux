@@ -1,0 +1,19 @@
+{
+  "AppVersion": "2.2.1.0",
+  "Title": "Queen's Mansion",
+  "Thumbnail": null,
+  "Preview": null,
+  "Desc": "Queen on the big screen, glowing acid pipes and a bubbling pool.",
+  "Author": "WinUx",
+  "License": "",
+  "Contact": "",
+  "Type": 1,
+  "FileName": "index.html",
+  "Arguments": null,
+  "IsAbsolutePath": false,
+  "Id": null,
+  "Tags": [
+    "winux"
+  ],
+  "Version": 0
+}
