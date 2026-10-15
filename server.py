@@ -614,13 +614,18 @@ WINUX_WIDGETS = {
     "SavePoint": ("Save Point", "Click the star to save. LV = days your PC has been on."),
     "Shop": ("Tem Shop", "hOI!! Click an item to open that app."),
     "Timer": ("Focus Timer", "FIGHT your task for 25 minutes, then take a break."),
+    "Party": ("Party Stats", "Deltarune style: Kris, Susie and Ralsei's HP is your free CPU, RAM and disk."),
+    "Dog": ("Annoying Dog", "Wanders along your screen and naps. Click it."),
+    "Ratings": ("Mettaton Ratings", "Your internet speed as Mettaton's TV ratings."),
+    "Bones": ("Bullet Board", "Music visualizer: bones rise to the beat, your soul hops."),
 }
 # Where each widget lands the first time on a 1920x1080 screen (you can drag them
 # anywhere after). Other screen sizes get the same layout scaled to fit.
 WIDGET_SPOTS = {"Clock": (40, 760), "Stats": (440, 790), "Music": (1480, 830),
                 "Dialog": (860, 900), "Menu": (40, 420),
                 "Battery": (300, 40), "SavePoint": (740, 40), "Weather": (1250, 40),
-                "Shop": (300, 200), "Calendar": (1540, 250), "Timer": (1480, 600)}
+                "Shop": (300, 200), "Calendar": (1540, 250), "Timer": (1480, 600),
+                "Bones": (760, 200), "Ratings": (760, 420), "Party": (720, 650), "Dog": (600, 980)}
 
 
 def screen_size():
@@ -672,9 +677,30 @@ def rm_read():
     return sections
 
 
+_skins_path = None
+
+
+def documents_folder():
+    """The real Documents folder (people can move it, e.g. into OneDrive or the Desktop)."""
+    buf = ctypes.create_unicode_buffer(260)
+    if ctypes.windll.shell32.SHGetFolderPathW(None, 5, None, 0, buf) == 0 and buf.value:  # 5 = My Documents
+        return Path(buf.value)
+    return Path.home() / "Documents"
+
+
 def skins_path():
-    p = rm_read().get("Rainmeter", {}).get("SkinPath")
-    return Path(p) if p else Path.home() / "Documents" / "Rainmeter" / "Skins"
+    """Rainmeter's skins folder. Rainmeter rewrites Rainmeter.ini whenever a widget moves
+    or turns on, so a read can come back empty: try again, and remember a good answer."""
+    global _skins_path
+    for _ in range(5):
+        p = rm_read().get("Rainmeter", {}).get("SkinPath")
+        if p:
+            _skins_path = Path(p)
+            return _skins_path
+        if _skins_path:
+            return _skins_path
+        time.sleep(0.2)
+    return documents_folder() / "Rainmeter" / "Skins"
 
 
 def skin_files(config):
@@ -743,6 +769,13 @@ def set_widget(config, on, file=None):
         sync_widgets()
     if on:
         files = skin_files(config)
+        for _ in range(3):
+            if files or not config.startswith("WinUx\\"):
+                break
+            # a brand-new widget file can be busy for a moment (antivirus scan); try again
+            time.sleep(1)
+            sync_widgets()
+            files = skin_files(config)
         file = file if file in files else (files[0] if files else None)
         if not file:
             raise RuntimeError(f"Couldn't find the widget {config}.")
@@ -750,8 +783,8 @@ def set_widget(config, on, file=None):
         first_time = keys.get("WindowX", "0") == "0" and keys.get("WindowY", "0") == "0"
         was_on = config in active_configs()
         rm_bang("!ActivateConfig", config, file)
-        if was_on:
-            rm_bang("!Refresh", config)  # already showing: reload it so new files take effect
+        if was_on or config.startswith("WinUx\\"):
+            rm_bang("!Refresh", config)  # reload it so new files take effect
         time.sleep(1)
         if config not in active_configs():
             # Rainmeter only knows skins that existed when it started. Make it look again.

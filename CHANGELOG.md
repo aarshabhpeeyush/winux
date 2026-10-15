@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.2 (in progress, not released)
+
+- 4 new widgets:
+  - **Party Stats**: a Deltarune-style twin of PC Status. Kris, Susie and Ralsei's HP is your
+    free CPU, RAM and disk (a busy PC takes damage; under 10 HP they're DOWN).
+  - **Annoying Dog**: wanders along the bottom of your screen, naps, barks when clicked.
+  - **Mettaton Ratings**: your internet speed as Mettaton's TV ratings chart.
+  - **Bullet Board**: a music visualizer in a battle box. Bones rise to the beat, your soul hops.
+- Fixed: turning on a widget could fail with "Couldn't find the widget" while Rainmeter was
+  saving its settings, and updated widgets didn't always reload.
+
 ## 1.0.1 (fixed edition) (2026-10-15)
 
 - **Fixed:** picking ORIGINAL in App icons left some icons blank. It now puts every icon back
