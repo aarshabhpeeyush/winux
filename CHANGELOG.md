@@ -8,6 +8,11 @@
   - **Annoying Dog**: wanders along the bottom of your screen, naps, barks when clicked.
   - **Mettaton Ratings**: your internet speed as Mettaton's TV ratings chart.
   - **Bullet Board**: a music visualizer in a battle box. Bones rise to the beat, your soul hops.
+- **Judgment Hall is now playable, with music**: press any key to fight Sans for fun.
+  His real moves (blue-soul gravity, bone walls, Gaster Blasters, blue bones, bone stabs,
+  KARMA) plus new ones (ketchup rain, hot dog barrage, bones that spell HEH). He dodges every
+  FIGHT... until turn 25, when you hit him with ketchup. "Song That Might Play When You Fight
+  Sans" plays only during the fight.
 - Fixed: turning on a widget could fail with "Couldn't find the widget" while Rainmeter was
   saving its settings, and updated widgets didn't always reload.
 

@@ -11,5 +11,23 @@
     "max": 3,
     "step": 0.1,
     "text": "Speed"
+  },
+  "game": {
+    "type": "checkbox",
+    "value": true,
+    "text": "Fight Sans (press a key)"
+  },
+  "music": {
+    "type": "checkbox",
+    "value": true,
+    "text": "Music during the fight"
+  },
+  "volume": {
+    "type": "slider",
+    "value": 50,
+    "min": 0,
+    "max": 100,
+    "step": 1,
+    "text": "Music volume"
   }
 }

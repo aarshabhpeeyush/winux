@@ -20,7 +20,7 @@ import winreg
 from ctypes import wintypes
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlparse
 
 
 def _crash(kind, value, tb):
@@ -1606,7 +1606,7 @@ PRESETS = [
                   "appsDark": True, "systemDark": True, "transparency": True,
                   "accent": "#3cc8ff", "accentOnTaskbar": True, "accentOnTitlebars": False, "live": "mine:waterfall",
                   "tbStyle": "acrylic", "tbColor": "#08143a", "tbOpacity": 40, "tbMax": "same"}},
-    {"name": "Judgment Hall", "blurb": "Golden light. It's a beautiful day outside.",
+    {"name": "Judgment Hall", "blurb": "Golden light. Press a key to fight Sans.",
      "settings": {"cursors": "soul", "icons": "pixel", "sounds": "chiptune",
                   "appsDark": True, "systemDark": True, "transparency": True,
                   "accent": "#e8b04a", "accentOnTaskbar": False, "accentOnTitlebars": True, "live": "mine:judgment-hall",
@@ -1640,6 +1640,7 @@ addEventListener("message", (e) => {
   if (!m.winuxMusic || !player || !player.setVolume) return;
   on = m.on; vol = m.vol;
   player.setVolume(vol);
+  if (m.restart && player.seekTo) player.seekTo(0, true);
   on ? player.playVideo() : player.pauseVideo();
 });
 </script>
@@ -1750,12 +1751,27 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json({"error": "not found"}, 404)
             ctype = {".png": "image/png", ".gif": "image/gif"}.get(p.suffix.lower(), "image/jpeg")
             self.send_file(p, ctype)
+        elif url.path.startswith("/livewall/"):
+            # a file inside one of our web wallpapers (pictures, music.mp3...), so
+            # things next to index.html load in previews just like in Lively
+            p = (LIVE_WALLS / unquote(url.path[len("/livewall/"):])).resolve()
+            if not p.is_relative_to(LIVE_WALLS.resolve()) or not p.is_file():
+                return self.send_json({"error": "not found"}, 404)
+            ctype = {".html": "text/html; charset=utf-8", ".png": "image/png", ".mp3": "audio/mpeg",
+                     ".ogg": "audio/ogg", ".json": "application/json", ".js": "text/javascript",
+                     ".gif": "image/gif", ".jpg": "image/jpeg"}.get(p.suffix.lower(), "application/octet-stream")
+            self.send_big_file(p, ctype)
         elif url.path == "/livefile":
             # Our own live wallpapers: the video/gif, or the web page for a preview.
             p = live_path(q.get("id", [""])[0])
             if not p or not p.is_relative_to(LIVE_WALLS.resolve()):
                 return self.send_json({"error": "not found"}, 404)
             if p.is_dir():
+                # web wallpapers open from their own folder, so relative files work
+                self.send_response(302)
+                self.send_header("Location", f"/livewall/{quote(p.name)}/{quote((read_info(p) or {}).get('FileName', 'index.html'))}")
+                self.end_headers()
+                return
                 p = p / (read_info(p) or {}).get("FileName", "index.html")
                 p = p.resolve()
                 if not p.is_file() or not p.is_relative_to(LIVE_WALLS.resolve()):

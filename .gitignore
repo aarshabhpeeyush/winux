@@ -22,3 +22,6 @@ live-walls/*.mkv
 live-walls/*.gif
 winux-error.log
 install-log.txt
+
+# a stand-in Sans sprite for testing (not ours to share)
+live-walls/judgment-hall/sans.png

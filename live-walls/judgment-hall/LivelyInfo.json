@@ -3,7 +3,7 @@
   "Title": "Judgment Hall",
   "Thumbnail": null,
   "Preview": null,
-  "Desc": "Golden light through tall windows. Someone is waiting.",
+  "Desc": "Golden light, dust and Sans. Press any key to fight him just for fun, with his song.",
   "Author": "WinUx",
   "License": "",
   "Contact": "",
@@ -13,7 +13,9 @@
   "IsAbsolutePath": false,
   "Id": null,
   "Tags": [
-    "winux"
+    "winux",
+    "playable",
+    "music"
   ],
   "Version": 0
 }

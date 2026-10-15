@@ -6,15 +6,19 @@
 <style>
   html, body { margin: 0; height: 100%; background: #2a1a08; overflow: hidden; }
   canvas { width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
+  #music { position: fixed; width: 1px; height: 1px; left: -10px; top: -10px; border: 0; opacity: 0; pointer-events: none; }
 </style>
 </head>
 <body>
-<canvas id="c"></canvas>
+<canvas id="c" tabindex="0"></canvas>
 <script>
-// Judgment Hall: golden arched windows, pillars, beams of light, dust in the
-// air, a checker floor, and Sans waiting in the middle. His eye flashes blue.
+// Judgment Hall: golden windows, pillars, light beams and dust, with Sans waiting.
+// Press any key to fight him, just for fun. He dodges everything... until turn 25,
+// when your hit lands as a splash of ketchup. "Song That Might Play When You Fight
+// Sans" plays only during the fight. (WinUx's only theme that's playable AND has music.)
 const PIXEL = 4;
-const opts = { sans: true, speed: 1 };
+const opts = { sans: true, speed: 1, game: true, music: true, volume: 50 };
+const SONG = "47GvY9rOMUs";   // "Song That Might Play When You Fight Sans" - Toby Fox
 
 const c = document.getElementById("c");
 const ctx = c.getContext("2d");
@@ -36,6 +40,43 @@ function poly(pts, col) {
   ctx.fill();
 }
 const rnd = (a, b) => a + Math.random() * (b - a);
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+
+// ---------------------------------------------------------------- tiny pixel font
+const FONT = {
+  A: "010101111101101", B: "110101110101110", C: "011100100100011", D: "110101101101110", E: "111100110100111",
+  F: "111100110100100", G: "011100101101011", H: "101101111101101", I: "111010010010111", J: "001001001101010",
+  K: "101101110101101", L: "100100100100111", M: "101111111101101", N: "110101101101101", O: "010101101101010",
+  P: "110101110100100", Q: "010101101110011", R: "110101110101101", S: "011100010001110", T: "111010010010010",
+  U: "101101101101111", V: "101101101101010", W: "101101111111101", X: "101101010101101", Y: "101101010010010",
+  Z: "111001010100111", "0": "111101101101111", "1": "010110010010111", "2": "111001111100111",
+  "3": "111001111001111", "4": "101101111001001", "5": "111100111001111", "6": "111100111101111",
+  "7": "111001001001001", "8": "111101111101111", "9": "111101111001111", "/": "001001010100100",
+  "!": "010010010000010", ".": "000000000000010", ",": "000000000010100", "-": "000000111000000",
+  "'": "010010000000000", "?": "110001010000010", "*": "000101010101000", " ": "000000000000000",
+  ":": "000010000010000", "(": "010100100100010", ")": "010001001001010", "+": "000010111010000",
+};
+function text(str, x, y, s, col) {
+  ctx.fillStyle = col;
+  for (const ch of str.toUpperCase()) {
+    const g = FONT[ch] || FONT[" "];
+    for (let i = 0; i < 15; i++) if (g[i] === "1") ctx.fillRect(Math.round(x + (i % 3) * s), Math.round(y + Math.floor(i / 3) * s), s, s);
+    x += 4 * s;
+  }
+  return x;
+}
+const textWidth = (str, s) => str.length * 4 * s - s;
+// wrap text into lines that fit a width
+function wrap(str, width, s) {
+  const words = str.split(" "), lines = [];
+  let line = "";
+  for (const w of words) {
+    const t2 = line ? line + " " + w : w;
+    if (textWidth(t2, s) > width && line) { lines.push(line); line = w; } else line = t2;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
 
 function resize() {
   W = c.width = Math.ceil(innerWidth / PIXEL);
@@ -46,22 +87,22 @@ function resize() {
 addEventListener("resize", resize);
 resize();
 
-// Sans as a dark silhouette: round head, hood, hands in pockets, slippers.
-// Every few seconds his left eye lights up blue.
-function sans(cx, floorY, t, eye) {
+// ================================================================= THE HALL
+
+// Sans as a dark silhouette (the hall is backlit, like in the game).
+function sansSilhouette(cx, floorY, t, eye) {
   const s = S * 1.3;
   const breathe = Math.round(Math.sin(t * 1.5) * 0.6 * s);
   const col = "#140c04";
-  R(cx - 9 * s, floorY - 3 * s, 7 * s, 3 * s, col);           // slippers
+  R(cx - 9 * s, floorY - 3 * s, 7 * s, 3 * s, col);
   R(cx + 2 * s, floorY - 3 * s, 7 * s, 3 * s, col);
-  R(cx - 7 * s, floorY - 14 * s, 5 * s, 11 * s, col);          // legs (shorts)
+  R(cx - 7 * s, floorY - 14 * s, 5 * s, 11 * s, col);
   R(cx + 2 * s, floorY - 14 * s, 5 * s, 11 * s, col);
   const top = floorY - 36 * s + breathe;
-  ellipse(cx, top + 12 * s, 15 * s, 12 * s, col);               // jacket body
+  ellipse(cx, top + 12 * s, 15 * s, 12 * s, col);
   R(cx - 13 * s, top + 12 * s, 26 * s, 12 * s - breathe, col);
-  ellipse(cx, top + 2 * s, 14 * s, 4 * s, col);                 // hood around the neck
-  ellipse(cx, top - 8 * s, 11 * s, 10 * s, col);                // skull
-  // eye sockets: dark, with tiny white pupils... or the blue eye
+  ellipse(cx, top + 2 * s, 14 * s, 4 * s, col);
+  ellipse(cx, top - 8 * s, 11 * s, 10 * s, col);
   for (const side of [-1, 1]) {
     const ex = cx + side * 5 * s, ey = top - 9 * s;
     ellipse(ex, ey, 2.5 * s, 2.5 * s, "#000");
@@ -71,23 +112,16 @@ function sans(cx, floorY, t, eye) {
       ctx.globalAlpha = 1;
       ellipse(ex, ey, 1.6 * s, 1.6 * s, "#7ae0ff");
       R(ex - 0.5 * s, ey - 0.5 * s, s, s, "#ffffff");
-      // a little flame trailing up from the eye
       R(ex + 1 * s, ey - 3 * s - Math.abs(Math.sin(t * 20)) * s, s, 2 * s, "#2aa8ff");
     } else if (eye <= 0) {
       R(ex - 0.5 * s, ey - 0.5 * s, s, s, "#f0e8d8");
     }
   }
-  R(cx - 6 * s, top - 3 * s, 12 * s, 1 * s, "#000");             // grin
+  R(cx - 6 * s, top - 3 * s, 12 * s, 1 * s, "#000");
   for (let k = -5; k <= 5; k += 2) R(cx + k * s, top - 4 * s, 1, 2 * s, "#000");
 }
 
-let last = performance.now(), t = 0;
-function frame(now) {
-  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)) * opts.speed;
-  last = Math.max(last, now);
-  t += dt;
-
-  // golden wall
+function drawHall(dt, t) {
   const bg = ctx.createLinearGradient(0, 0, 0, H);
   bg.addColorStop(0, "#c88a2a");
   bg.addColorStop(0.7, "#e8b04a");
@@ -96,7 +130,6 @@ function frame(now) {
   ctx.fillRect(0, 0, W, H);
 
   const floorY = Math.round(H * 0.72);
-  // tall arched windows between pillars
   const n = Math.max(4, Math.round(W / 90));
   const span = W / n;
   for (let k = 0; k < n; k++) {
@@ -106,11 +139,9 @@ function frame(now) {
     ellipse(x + w / 2, top, w / 2 + 2 * S, w / 2 + 2 * S, "#8a5a18");
     ellipse(x + w / 2, top, w / 2, w / 2, "#fff2c8");
     R(x - 2 * S, top, w + 4 * S, 2, "#fff2c8");
-    // window cross bars (the delta-rune-ish mullions)
     R(x + w / 2 - 1, top - w / 2, 2, bot - top + w / 2, "#8a5a18");
     R(x, top + (bot - top) * 0.4, w, 2, "#8a5a18");
   }
-  // pillars in front of the walls
   for (let k = 0; k <= n; k++) {
     const x = k * span - 7 * S;
     R(x, 0, 14 * S, floorY, "#b07a28");
@@ -118,14 +149,11 @@ function frame(now) {
     R(x + 10 * S, 0, 2 * S, floorY, "#8a5a18");
     R(x - 2 * S, floorY - 6 * S, 18 * S, 6 * S, "#8a5a18");
   }
-
-  // checker floor, flat and even like in the game
   const tile = 16 * S;
   for (let y = floorY, row = 0; y < H; y += tile, row++)
     for (let i = -Math.ceil(W / tile / 2) - 1; i <= Math.ceil(W / tile / 2); i++)
       R(W / 2 + i * tile, y, tile, tile, ((i + row) % 2 + 2) % 2 ? "#d8aa58" : "#a87a30");
 
-  // light beams falling from each window across the floor
   ctx.globalCompositeOperation = "lighter";
   for (let k = 0; k < n; k++) {
     const x = k * span + span * 0.25, w = span * 0.5;
@@ -137,7 +165,6 @@ function frame(now) {
   }
   ctx.globalCompositeOperation = "source-over";
 
-  // floating dust motes, glinting in the beams
   for (const d of dust) {
     d.y -= d.v * dt;
     d.x += Math.sin(t * 0.5 + d.p) * 2 * dt;
@@ -147,22 +174,718 @@ function frame(now) {
   }
   ctx.globalAlpha = 1;
 
-  // Sans, standing in the middle of the hall
   if (opts.sans) {
-    const cyc = t % 8;                          // the eye flashes for ~1.5s every 8s
+    const cyc = t % 8;
     const eye = cyc > 6.5 ? Math.min(1, (cyc - 6.5) * 4, (8 - cyc) * 4) : 0;
     ctx.globalAlpha = 0.25;
     ellipse(W / 2, floorY + 18 * S, 22 * S, 3 * S, "#3a2008");
     ctx.globalAlpha = 1;
-    sans(W / 2, floorY + 18 * S, t, eye);
+    sansSilhouette(W / 2, floorY + 18 * S, t, eye);
+  }
+  if (opts.game) {
+    ctx.globalAlpha = 0.45 + 0.25 * Math.sin(t * 2);
+    const m = "PRESS ANY KEY TO FIGHT SANS";
+    text(m, W / 2 - textWidth(m, S) / 2, H - 10 * S, S, "#3a2008");
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ================================================================= THE FIGHT
+
+// If sans.png sits next to this file, the fight uses it as Sans's sprite.
+// Its white background is made see-through and it's shrunk to real sprite pixels.
+let sansImg = null;
+(function loadSansPng() {
+  const im = new Image();
+  im.onload = () => { try { sansImg = prepSprite(im); } catch (e) { sansImg = null; } };
+  im.src = "sans.png";
+})();
+function prepSprite(im) {
+  const w = im.naturalWidth, h = im.naturalHeight;
+  const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+  const g = cv.getContext("2d"); g.drawImage(im, 0, 0);
+  const d = g.getImageData(0, 0, w, h), px = d.data;
+  const dark = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) {
+    const a = px[i * 4 + 3], l = (px[i * 4] + px[i * 4 + 1] + px[i * 4 + 2]) / 3;
+    dark[i] = a > 128 && l < 128 ? 1 : 0;
+  }
+  // the white around Sans (reachable from the edges) becomes see-through
+  const outside = new Uint8Array(w * h), stack = [];
+  for (let x = 0; x < w; x++) stack.push(x, (h - 1) * w + x);
+  for (let y = 0; y < h; y++) stack.push(y * w, y * w + w - 1);
+  while (stack.length) {
+    const i = stack.pop();
+    if (outside[i] || dark[i]) continue;          // see-through pixels count as background too
+    outside[i] = 1;
+    const x = i % w, y = (i / w) | 0;
+    if (x > 0) stack.push(i - 1); if (x < w - 1) stack.push(i + 1);
+    if (y > 0) stack.push(i - w); if (y < h - 1) stack.push(i + w);
+  }
+  // how big is one sprite pixel? (the shortest run of black in the picture)
+  let cell = 999;
+  for (let y = 0; y < h; y += Math.max(1, (h / 60) | 0)) {
+    let run = 0;
+    for (let x = 0; x <= w; x++) {
+      if (x < w && dark[y * w + x]) run++;
+      else { if (run >= 2 && run < cell) cell = run; run = 0; }
+    }
+  }
+  if (cell === 999 || cell < 2) cell = 1;
+  const sw = Math.max(1, Math.round(w / cell)), sh = Math.max(1, Math.round(h / cell));
+  const out = document.createElement("canvas"); out.width = sw; out.height = sh;
+  const og = out.getContext("2d"), od = og.createImageData(sw, sh);
+  for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) {
+    const sx = Math.min(w - 1, Math.floor((x + 0.5) * w / sw)), sy = Math.min(h - 1, Math.floor((y + 0.5) * h / sh));
+    const i = sy * w + sx, o = (y * sw + x) * 4;
+    if (outside[i]) continue;
+    const v = dark[i] ? 0 : 255;
+    od.data[o] = od.data[o + 1] = od.data[o + 2] = v; od.data[o + 3] = 255;
+  }
+  og.putImageData(od, 0, 0);
+  return out;
+}
+
+// Battle Sans, drawn in white on black from the user's reference:
+// round skull, big eye sockets with white pupils, the grin with its teeth,
+// a hoodie with fur trim over a white shirt, shorts and slippers.
+function sansBattle(cx, top, p, t, look) {
+  if (sansImg) return sansFromPng(cx, top, p, t, look);
+  const W2 = "#ffffff", K = "#000000";
+  const sway = look.dodge;                                  // sidestep when he dodges
+  const x0 = cx + sway * p;
+  const bob = Math.round(Math.sin(t * 2.4) * 0.5 * p);
+  const by = top + 22 * p + bob;                            // body top
+  // slippers + legs
+  ellipse(x0 - 8 * p, top + 53 * p, 5 * p, 2 * p, W2);
+  ellipse(x0 + 8 * p, top + 53 * p, 5 * p, 2 * p, W2);
+  R(x0 - 7 * p, top + 47 * p, 2 * p, 5 * p, W2);
+  R(x0 + 5 * p, top + 47 * p, 2 * p, 5 * p, W2);
+  // shorts: black with a white outline and side stripes
+  R(x0 - 12 * p, top + 37 * p + bob, 24 * p, 11 * p, W2);
+  R(x0 - 11 * p, top + 38 * p + bob, 22 * p, 9 * p, K);
+  R(x0 - 1 * p, top + 41 * p + bob, 2 * p, 7 * p, W2);
+  R(x0 - 9 * p, top + 39 * p + bob, p, 7 * p, W2);
+  R(x0 + 8 * p, top + 39 * p + bob, p, 7 * p, W2);
+  // hoodie: big rounded jacket, white outline, black inside, white shirt
+  ellipse(x0, by + 8 * p, 17 * p, 9 * p, W2);
+  R(x0 - 17 * p, by + 8 * p, 34 * p, 8 * p, W2);
+  ellipse(x0, by + 8 * p, 16 * p, 8 * p, K);
+  R(x0 - 16 * p, by + 8 * p, 32 * p, 7 * p, K);
+  R(x0 - 4 * p, by + 2 * p, 8 * p, 13 * p, W2);            // shirt
+  R(x0 - 3 * p, by + 3 * p, 6 * p, 11 * p, W2);
+  for (const sd of [-1, 1]) {                               // zip edges + sleeve lines
+    R(x0 + sd * 6 * p - (sd < 0 ? p : 0), by + 3 * p, p, 12 * p, W2);
+    R(x0 + sd * 12 * p, by + 5 * p, p, 9 * p, W2);
+  }
+  // fur trim of the hood around his neck
+  ellipse(x0, by, 13 * p, 3 * p, W2);
+  ellipse(x0, by, 11 * p, 2 * p, K);
+  // skull
+  const hy = top + 10 * p + bob;
+  ellipse(x0, hy, 12 * p, 10 * p, W2);
+  R(x0 - 10 * p, hy, 20 * p, 9 * p, W2);
+  // eye sockets
+  for (const sd of [-1, 1]) {
+    const ex = x0 + sd * 5 * p, ey = hy - 1 * p;
+    ellipse(ex, ey, 3.2 * p, 2.6 * p, K);
+    if (look.blue && sd === -1) {                           // the blue eye
+      ellipse(ex, ey, 1.4 * p, 1.4 * p, "#2aa8ff");
+      R(ex - 0.5 * p, ey - 0.5 * p, p, p, W2);
+    } else if (!look.closed) {
+      R(ex - 0.5 * p, ey - 0.5 * p, p, p, W2);              // tiny white pupils
+    } else {
+      R(ex - 2 * p, ey, 4 * p, p, W2);                      // eyes shut (laughing)
+    }
+  }
+  // nose
+  poly([[x0, hy + 2 * p], [x0 - 1.4 * p, hy + 4.5 * p], [x0 + 1.4 * p, hy + 4.5 * p]], K);
+  // the grin and its teeth
+  R(x0 - 7 * p, hy + 6 * p, 14 * p, p, K);
+  R(x0 - 6 * p, hy + 8 * p, 12 * p, p, K);
+  for (let k = -4; k <= 4; k += 3) R(x0 + k * p, hy + 6 * p, p, 3 * p, K);
+  R(x0 - 8 * p, hy + 5 * p, p, 2 * p, K);
+  R(x0 + 7 * p, hy + 5 * p, p, 2 * p, K);
+  // ketchup!
+  if (look.ketchup) {
+    ctx.globalAlpha = Math.min(1, look.ketchup);
+    ellipse(x0 + 3 * p, hy + 3 * p, 6 * p, 4 * p, "#d81e2a");
+    ellipse(x0 - 4 * p, by + 6 * p, 4 * p, 3 * p, "#d81e2a");
+    for (let k = 0; k < 6; k++) R(x0 - 8 * p + k * 3 * p, hy + 8 * p + (k % 3) * 3 * p, p, (2 + k % 3) * p, "#d81e2a");
+    ctx.globalAlpha = 1;
+  }
+}
+
+function sansFromPng(cx, top, p, t, look) {
+  const k = Math.max(1, Math.round((56 * p) / sansImg.height));       // whole-number scale = crisp pixels
+  const sw = sansImg.width * k, sh = sansImg.height * k;
+  const x0 = Math.round(cx - sw / 2 + look.dodge * p), y0 = Math.round(top + Math.sin(t * 2.4) * 0.5 * p);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(sansImg, x0, y0, sw, sh);
+  if (look.ketchup) {
+    ctx.globalAlpha = Math.min(1, look.ketchup);
+    ellipse(x0 + sw * 0.58, y0 + sh * 0.2, sw * 0.13, sh * 0.07, "#d81e2a");
+    ellipse(x0 + sw * 0.38, y0 + sh * 0.5, sw * 0.1, sh * 0.05, "#d81e2a");
+    for (let i = 0; i < 6; i++) R(x0 + sw * (0.3 + i * 0.07), y0 + sh * (0.27 + (i % 3) * 0.05), p, (2 + i % 3) * p, "#d81e2a");
+    ctx.globalAlpha = 1;
+  }
+}
+
+// --- state
+const KEYS = new Set();
+const KEYMAP = { ArrowUp: "u", KeyW: "u", ArrowDown: "d", KeyS: "d", ArrowLeft: "l", KeyA: "l", ArrowRight: "r", KeyD: "r",
+                 KeyZ: "z", Enter: "z", NumpadEnter: "z", Space: "z", KeyX: "x", Escape: "x", ShiftLeft: "x", ShiftRight: "x" };
+let mode = "hall", fade = 0, lastKey = -99, tAll = 0;
+let phase = "menu", phaseT = 0, sel = 0, sub = 0, turn = 1;
+let hp = 92, kr = 0, krTick = 0, hurtT = 0, gameOverT = 0;
+let soul, soulBlue = false, onFloor = false, hazards = [], attackName = "", attackEnd = 0;
+let flavor = "", speech = "", speechT = 0, look = { dodge: 0, blue: false, closed: false, ketchup: 0 };
+let aimX = 0, aimDir = 1, resultText = "", items;
+const MAX_HP = 92;
+const BUTTONS = ["FIGHT", "ACT", "ITEM", "MERCY"];
+const ACTS = ["CHECK", "JOKE", "COMPLIMENT"];
+let box = { x: 0, y: 0, w: 0, h: 0 }, boxTarget = null;
+
+const LINES_TURN = [
+  "you're getting pretty good at this, buddo.",
+  "i'm not even trying. well. i'm never really trying.",
+  "know why skeletons don't fight each other? they don't have the guts.",
+  "heh. nice dodge.",
+  "this is usually the part where i take a nap.",
+  "papyrus would be proud. probably.",
+  "don't worry. i've got a skele-TON more of these.",
+  "ketchup break? no? ok.",
+  "you're a natural. a natural at what? beats me.",
+  "this is fun. i'd say 'bone-afide' fun, but that'd be too much.",
+];
+const LINES_MISS = ["heh. what, you think i'm gonna just stand there?", "too slow, pal.", "nope.",
+                    "missed me. try again in... oh, a while.", "dodging is kinda my thing."];
+const LINES_SPARE = ["spare? heh, not yet. we're having fun.", "nah. let's keep going.",
+                     "you're sweet, kid. but i'm not done yet."];
+
+function startFight() {
+  mode = "fight"; fade = 0.6;
+  phase = "menu"; phaseT = 0; sel = 0; turn = 1;
+  hp = MAX_HP; kr = 0; hurtT = 0; gameOverT = 0;
+  hazards = []; look = { dodge: 0, blue: false, closed: false, ketchup: 0 };
+  items = [{ name: "PIE", heal: 99, n: 1 }, { name: "NOODLES", heal: 90, n: 1 },
+           { name: "STEAK", heal: 60, n: 1 }, { name: "L.HERO", heal: 40, n: 2 }];
+  flavor = "* You feel like you're going to have a good time.";
+  say("heya. wanna have a bad time? ...nah, just kidding. let's have a FUN time.", 4);
+  layoutBox(true);
+  setMusic(true);
+}
+function endFight() {
+  mode = "hall"; fade = 0.6;
+  setMusic(false);
+}
+function say(s, time = 3) { speech = s; speechT = time; }
+
+function layoutBox(menu) {
+  const w = menu ? Math.min(W - 40 * S, 250 * S) : 110 * S, h = 66 * S;
+  boxTarget = { x: Math.round(W / 2 - w / 2), y: Math.round(H * 0.47), w: Math.round(w), h };
+  if (!box.w) box = { ...boxTarget };
+}
+
+// --- input
+addEventListener("keydown", (e) => {
+  const k = KEYMAP[e.code];
+  if (!opts.game) return;
+  lastKey = tAll;
+  if (mode === "hall") { if (k || e.key.length === 1) startFight(); return; }
+  if (!k) return;
+  e.preventDefault();
+  if (!e.repeat) press(k);
+  KEYS.add(k);
+});
+addEventListener("keyup", (e) => { const k = KEYMAP[e.code]; if (k) KEYS.delete(k); });
+addEventListener("blur", () => KEYS.clear());
+c.addEventListener("mousedown", () => c.focus());
+
+function press(k) {
+  if (gameOverT) { if (k === "z" && gameOverT < 2.5) startFight(); return; }
+  if (phase === "menu") {
+    if (k === "l") sel = (sel + 3) % 4;
+    if (k === "r") sel = (sel + 1) % 4;
+    if (k === "z") choose();
+  } else if (phase === "act" || phase === "item") {
+    const n = phase === "act" ? ACTS.length : items.length;
+    if (k === "l" || k === "u") sub = (sub + n - 1) % n;
+    if (k === "r" || k === "d") sub = (sub + 1) % n;
+    if (k === "x") phase = "menu";
+    if (k === "z") (phase === "act" ? doAct : doItem)();
+  } else if (phase === "aim") {
+    if (k === "z") strike();
+  } else if (phase === "talk" || phase === "result") {
+    if (k === "z" && phaseT > 0.4) phaseT = 99;                // skip ahead
+  } else if (phase === "won") {
+    if (k === "z" && phaseT > 2) endFight();
+  }
+}
+
+function choose() {
+  sub = 0;
+  if (sel === 0) { phase = "aim"; aimX = 0; aimDir = 1; phaseT = 0; }
+  if (sel === 1) phase = "act";
+  if (sel === 2) phase = items.some((i) => i.n > 0) ? "item" : (flavor = "* You're out of snacks.", "menu");
+  if (sel === 3) { resultText = "* You spared Sans."; say(pick(LINES_SPARE)); toResult(); }
+}
+function doAct() {
+  const a = ACTS[sub];
+  if (a === "CHECK") resultText = "* SANS 1 ATK 1 DEF. * The easiest enemy. Can only deal 1 damage.";
+  if (a === "JOKE") { resultText = "* You tell Sans a joke. He laughs. A lot."; look.closed = true; say("heh heh heh. ok, that was a good one."); }
+  if (a === "COMPLIMENT") { resultText = "* You tell Sans he has a great smile."; say("thanks. it's kinda permanent."); }
+  toResult();
+}
+function doItem() {
+  const it = items[sub];
+  if (!it.n) return;
+  it.n--;
+  const before = hp;
+  hp = Math.min(MAX_HP, hp + it.heal);
+  kr = Math.min(kr, hp - 1);
+  resultText = `* You ate the ${it.name}. You recovered ${hp - before} HP!`;
+  if (it.name === "PIE") say("butterscotch pie? smells like home.");
+  toResult();
+}
+function strike() {
+  // the closer to the middle, the better... not that it matters. he dodges.
+  if (turn >= 25) {
+    resultText = "* You threw KETCHUP at Sans!";
+    look.ketchup = 1;
+    say("...ketchup? you threw KETCHUP at me? ...heh. that's my kind of finisher.", 6);
+    phase = "won"; phaseT = 0;
+    return;
+  }
+  look.dodge = -1;
+  resultText = "MISS";
+  say(turn === 24 ? "you look determined. ...heh. ok, ok. one more turn." : pick(LINES_MISS));
+  toResult();
+}
+function toResult() { phase = "result"; phaseT = 0; }
+
+// --- the attacks (soul coordinates are inside the box)
+function bone(x, y, w, h, extra = {}) { hazards.push({ type: "bone", x, y, w, h, vx: 0, vy: 0, ...extra }); }
+
+const ATTACKS = {
+  // ---- the real fight
+  boneWave() {               // blue soul: hop over bones sliding along the floor
+    soulBlue = true;
+    for (let i = 0; i < 9; i++) {
+      const from = i % 2 ? -1 : 1, h = (i % 3 === 2 ? 22 : 12) * S;
+      bone(from > 0 ? box.x + box.w + i * 26 * S : box.x - 8 * S - i * 26 * S, box.y + box.h - h, 5 * S, h,
+           { vx: -from * 80 * S });
+    }
+    return 6;
+  },
+  boneWall() {               // walls of bones with a gap that drifts
+    soulBlue = false;
+    for (let i = 0; i < 14; i++) {
+      const gap = box.y + box.h * (0.35 + 0.25 * Math.sin(i * 0.7)), gh = 22 * S;
+      const x = box.x + box.w + i * 18 * S;
+      bone(x, box.y, 5 * S, gap - gh / 2 - box.y, { vx: -75 * S });
+      bone(x, gap + gh / 2, 5 * S, box.y + box.h - gap - gh / 2, { vx: -75 * S });
+    }
+    return 6.5;
+  },
+  blasters() {               // Gaster Blasters: charge, then fire a beam
+    soulBlue = false;
+    for (let i = 0; i < 6; i++) {
+      const horiz = i % 2 === 0;
+      hazards.push({ type: "blaster", horiz, wait: 0.5 + i * 0.75, fire: 0.45,
+                     pos: horiz ? box.y + rnd(10 * S, box.h - 10 * S) : box.x + rnd(10 * S, box.w - 10 * S) });
+    }
+    return 6.2;
+  },
+  blueBones() {              // blue bones only hurt if you're moving
+    soulBlue = false;
+    for (let i = 0; i < 7; i++) {
+      bone(box.x - 10 * S - i * 30 * S, box.y, 5 * S, box.h, { vx: 70 * S, blue: i % 2 === 0 });
+    }
+    return 6;
+  },
+  boneStab() {               // bones stab up from the floor (blue soul, warning first)
+    soulBlue = true;
+    for (let i = 0; i < 5; i++) {
+      const half = i % 2;
+      hazards.push({ type: "stab", x: box.x + (half ? box.w / 2 : 0), w: box.w / 2, warn: 0.7 + i * 1.0, live: 0.45 });
+    }
+    return 6;
+  },
+  // ---- original moves
+  ketchup() {                // ketchup bottles rain down and leave puddles
+    soulBlue = false;
+    for (let i = 0; i < 12; i++) {
+      hazards.push({ type: "bottle", x: box.x + rnd(6 * S, box.w - 6 * S), y: box.y - 10 * S - i * 14 * S, vy: 55 * S });
+    }
+    return 6.5;
+  },
+  hotdogs() {                // a hot dog barrage, in arcs
+    soulBlue = false;
+    for (let i = 0; i < 10; i++) {
+      hazards.push({ type: "hotdog", x: box.x + box.w + 10 * S + i * 22 * S, y: box.y + rnd(8 * S, box.h - 8 * S),
+                     vx: -70 * S, vy: rnd(-25, 25) * S });
+    }
+    return 6;
+  },
+  punBones() {               // bones that spell HEH fly at you
+    soulBlue = false;
+    const word = "HEH", cell = 5 * S;
+    let gx = box.x + box.w + 10 * S;
+    for (const ch of word) {
+      const g = FONT[ch];
+      for (let i = 0; i < 15; i++) if (g[i] === "1")
+        bone(gx + (i % 3) * cell, box.y + 8 * S + Math.floor(i / 3) * cell * 2, cell - S, cell * 2 - S, { vx: -60 * S, block: true });
+      gx += 4 * cell;
+    }
+    return 6.5;
+  },
+};
+const ORDER = ["boneWave", "boneWall", "blasters", "ketchup", "blueBones", "hotdogs", "boneStab", "punBones"];
+
+function startAttack() {
+  phase = "attack"; phaseT = 0;
+  layoutBox(false);
+  soul = { x: boxTarget.x + boxTarget.w / 2, y: boxTarget.y + boxTarget.h / 2, vy: 0, mx: 0, my: 0 };
+  hazards = [];
+  attackName = ORDER[(turn - 1) % ORDER.length];
+  attackEnd = 99;   // set once the box has finished resizing
+}
+
+function hit(dmg = 1) {
+  if (hurtT > 0 || gameOverT) return;
+  hurtT = 0.25;                       // a short breather after each hit (it's a fun fight)
+  hp -= dmg;
+  kr = Math.min(kr + 2, Math.max(0, hp - 1));
+  if (hp <= 0) {
+    hp = 0; gameOverT = 4; hazards = [];
+    say("welp. that's a game over. ...wanna go again? press Z.", 4);
+  }
+}
+
+// --- update
+function updateFight(dt) {
+  phaseT += dt;
+  speechT -= dt;
+  hurtT = Math.max(0, hurtT - dt);
+  look.dodge *= Math.pow(0.02, dt);
+  if (Math.abs(look.dodge) < 0.05) look.dodge = 0;
+  if (look.closed && speechT < 0) look.closed = false;
+  if (gameOverT) { gameOverT = Math.max(0.01, gameOverT - dt); return; }
+
+  // the box slides between menu size and attack size
+  if (boxTarget) for (const k of ["x", "y", "w", "h"]) box[k] += (boxTarget[k] - box[k]) * Math.min(1, dt * 10);
+
+  // KARMA: the purple part of your HP drains away
+  krTick += dt;
+  while (krTick > 0.15) { krTick -= 0.15; if (kr > 0 && hp > 1) { hp--; kr--; } }
+
+  if (phase === "aim") {
+    aimX += aimDir * dt * 1.3;
+    if (aimX > 1) { strike(); }
+  } else if (phase === "result" && phaseT > 2.2) {
+    phase = "talk"; phaseT = 0;
+    if (speechT < 0.5) say(turn === 1 ? "alright, here we go." : pick(LINES_TURN));
+  } else if (phase === "talk" && phaseT > 2.8) {
+    startAttack();
+  } else if (phase === "attack") {
+    if (attackEnd === 99 && Math.abs(box.w - boxTarget.w) < 2) {
+      attackEnd = ATTACKS[attackName]();
+      look.blue = soulBlue;
+      phaseT = 0;
+    }
+    if (attackEnd !== 99) moveSoul(dt);
+    updateHazards(dt);
+    if (attackEnd !== 99 && phaseT > attackEnd) {
+      hazards = []; soulBlue = false; look.blue = false;
+      turn++;
+      phase = "menu"; sel = 0;
+      layoutBox(true);
+      flavor = turn === 25 ? "* Sans is tired of dodging. Maybe this is your chance."
+             : turn > 15 ? "* Sans is starting to sweat. ...is that ketchup?"
+             : pick(["* Sans is dodging everything... for now.", "* You feel like you're going to have a good time.",
+                     "* Sans winks at you.", "* The hall smells like hot dogs."]);
+    }
+  } else if (phase === "won") {
+    look.ketchup = Math.min(1, look.ketchup + dt);
+  }
+}
+
+function moveSoul(dt) {
+  const sp = 75 * S;
+  const mx = (KEYS.has("r") ? 1 : 0) - (KEYS.has("l") ? 1 : 0);
+  soul.mx = mx;
+  soul.x += mx * sp * dt;
+  if (soulBlue) {
+    // gravity: up to jump (hold for higher)
+    soul.vy += 380 * S * dt;
+    if (onFloor && KEYS.has("u")) soul.vy = -150 * S;
+    if (!KEYS.has("u") && soul.vy < -50 * S) soul.vy = -50 * S;
+    soul.y += soul.vy * dt;
+    soul.my = Math.sign(soul.vy);
+  } else {
+    const my = (KEYS.has("d") ? 1 : 0) - (KEYS.has("u") ? 1 : 0);
+    soul.my = my;
+    soul.y += my * sp * dt;
+  }
+  const minX = box.x + 4 * S, maxX = box.x + box.w - 4 * S, minY = box.y + 4 * S, maxY = box.y + box.h - 4 * S;
+  soul.x = Math.min(maxX, Math.max(minX, soul.x));
+  onFloor = soul.y >= maxY;
+  if (soul.y > maxY) { soul.y = maxY; soul.vy = 0; }
+  if (soul.y < minY) { soul.y = minY; soul.vy = Math.max(0, soul.vy); }
+}
+
+function inRect(x, y, rx, ry, rw, rh, pad = 3 * S) {
+  return x > rx - pad && x < rx + rw + pad && y > ry - pad && y < ry + rh + pad;
+}
+
+function updateHazards(dt) {
+  if (attackEnd === 99) return;
+  const moving = soul.mx !== 0 || soul.my !== 0;
+  for (const h of hazards) {
+    if (h.type === "bone") {
+      h.x += h.vx * dt; h.y += h.vy * dt;
+      if (inRect(soul.x, soul.y, h.x, h.y, h.w, h.h, 2 * S) && (!h.blue || moving)) hit();
+    } else if (h.type === "blaster") {
+      if (h.wait > 0) { h.wait -= dt; continue; }
+      h.fire -= dt;
+      const d = Math.abs((h.horiz ? soul.y : soul.x) - h.pos);
+      if (d < 7 * S) hit();
+      if (h.fire <= 0) h.dead = true;
+    } else if (h.type === "stab") {
+      if (h.warn > 0) { h.warn -= dt; continue; }
+      h.live -= dt;
+      if (soul.x > h.x && soul.x < h.x + h.w && soul.y > box.y + box.h - 22 * S) hit();
+      if (h.live <= 0) h.dead = true;
+    } else if (h.type === "bottle") {
+      h.y += h.vy * dt;
+      if (Math.abs(soul.x - h.x) < 4 * S && Math.abs(soul.y - h.y) < 6 * S) hit();
+      if (h.y > box.y + box.h - 4 * S) { h.type = "puddle"; h.y = box.y + box.h - 3 * S; h.life = 1.4; }
+    } else if (h.type === "puddle") {
+      h.life -= dt;
+      if (Math.abs(soul.x - h.x) < 7 * S && soul.y > h.y - 4 * S) hit();
+      if (h.life <= 0) h.dead = true;
+    } else if (h.type === "hotdog") {
+      h.x += h.vx * dt; h.y += h.vy * dt;
+      if (h.y < box.y + 4 * S || h.y > box.y + box.h - 4 * S) h.vy = -h.vy;
+      if (Math.abs(soul.x - h.x) < 6 * S && Math.abs(soul.y - h.y) < 3 * S) hit();
+    }
+  }
+  hazards = hazards.filter((h) => !h.dead && (h.type !== "bone" && h.type !== "hotdog" || (h.x > box.x - 400 * S && h.x < box.x + box.w + 400 * S)));
+}
+
+// --- drawing
+function drawBone(h) {
+  const col = h.blue ? "#2aa8ff" : "#ffffff";
+  if (h.block) { R(h.x, h.y, h.w, h.h, col); return; }
+  const k = Math.min(3 * S, h.w);
+  R(h.x + 1 * S, h.y + k, h.w - 2 * S, Math.max(0, h.h - 2 * k), col);
+  ellipse(h.x + 1 * S, h.y + k / 2, k / 2, k / 2, col); ellipse(h.x + h.w - 1 * S, h.y + k / 2, k / 2, k / 2, col);
+  ellipse(h.x + 1 * S, h.y + h.h - k / 2, k / 2, k / 2, col); ellipse(h.x + h.w - 1 * S, h.y + h.h - k / 2, k / 2, k / 2, col);
+}
+
+function drawBlaster(h, t) {
+  // a long dragon-skull, then a white beam
+  const charging = h.wait > 0;
+  const len = h.horiz ? box.w + 60 * S : box.h + 60 * S;
+  if (h.horiz) {
+    const x = box.x - 26 * S, y = h.pos;
+    ellipse(x, y, 10 * S, 7 * S, "#fff");
+    R(x + 4 * S, y - 4 * S, 10 * S, 8 * S, "#fff");
+    ellipse(x - 3 * S, y - 2 * S, 2 * S, 2 * S, "#000");
+    R(x + 6 * S, y - 1 * S, 8 * S, 2 * S, charging ? "#fff" : "#000");
+    if (charging) { if (Math.floor(t * 14) % 2) { ctx.globalAlpha = 0.25; R(box.x, y - 7 * S, box.w, 14 * S, "#fff"); ctx.globalAlpha = 1; } }
+    else { const bw = 14 * S * Math.min(1, h.fire * 4); R(x + 12 * S, y - bw / 2, len, bw, "#fff"); }
+  } else {
+    const x = h.pos, y = box.y - 26 * S;
+    ellipse(x, y, 7 * S, 10 * S, "#fff");
+    R(x - 4 * S, y + 4 * S, 8 * S, 10 * S, "#fff");
+    ellipse(x - 2 * S, y - 3 * S, 2 * S, 2 * S, "#000");
+    R(x - 1 * S, y + 6 * S, 2 * S, 8 * S, charging ? "#fff" : "#000");
+    if (charging) { if (Math.floor(t * 14) % 2) { ctx.globalAlpha = 0.25; R(x - 7 * S, box.y, 14 * S, box.h, "#fff"); ctx.globalAlpha = 1; } }
+    else { const bw = 14 * S * Math.min(1, h.fire * 4); R(x - bw / 2, y + 12 * S, bw, len, "#fff"); }
+  }
+}
+
+function soulHeart(x, y, col) {
+  const HEART = ["0110110", "1111111", "1111111", "0111110", "0011100", "0001000"];
+  ctx.fillStyle = col;
+  HEART.forEach((row, j) => [...row].forEach((p, i) => p === "1" && ctx.fillRect(Math.round(x + (i - 3) * S), Math.round(y + (j - 3) * S), S, S)));
+}
+
+function drawFight(t) {
+  R(0, 0, W, H, "#000");
+  const p = Math.max(1, Math.round(1.6 * S));
+  sansBattle(W / 2, 6 * S, p, t, look);
+
+  // speech bubble
+  if (speechT > 0 && speech) {
+    const bw = 120 * S, lines = wrap(speech, bw - 8 * S, S);
+    const bx = Math.round(W / 2 + 26 * S), by = 10 * S, bh = lines.length * 8 * S + 6 * S;
+    R(bx - S, by - S, bw + 2 * S, bh + 2 * S, "#000");
+    R(bx, by, bw, bh, "#fff");
+    poly([[bx, by + 8 * S], [bx - 6 * S, by + 11 * S], [bx, by + 14 * S]], "#fff");
+    lines.forEach((l, i) => text(l, bx + 4 * S, by + 4 * S + i * 8 * S, S, "#000"));
   }
 
+  // the battle box
+  R(box.x - 2 * S, box.y - 2 * S, box.w + 4 * S, box.h + 4 * S, "#fff");
+  R(box.x, box.y, box.w, box.h, "#000");
+
+  ctx.save();
+  ctx.beginPath(); ctx.rect(box.x, box.y, box.w, box.h); ctx.clip();
+  if (phase === "attack") {
+    for (const h of hazards) {
+      if (h.type === "bone") drawBone(h);
+      else if (h.type === "stab") {
+        if (h.warn > 0) { if (Math.floor(t * 12) % 2) { ctx.globalAlpha = 0.35; R(h.x, box.y + box.h - 22 * S, h.w, 22 * S, "#fff"); ctx.globalAlpha = 1; } }
+        else for (let x = h.x + 2 * S; x < h.x + h.w - 2 * S; x += 7 * S) drawBone({ x, y: box.y + box.h - 22 * S, w: 5 * S, h: 22 * S });
+      } else if (h.type === "bottle") {
+        R(h.x - 2 * S, h.y - 4 * S, 4 * S, 8 * S, "#d81e2a"); R(h.x - 1 * S, h.y - 6 * S, 2 * S, 2 * S, "#fff");
+      } else if (h.type === "puddle") {
+        ctx.globalAlpha = Math.min(1, h.life * 2); ellipse(h.x, h.y, 7 * S, 2 * S, "#d81e2a"); ctx.globalAlpha = 1;
+      } else if (h.type === "hotdog") {
+        R(h.x - 6 * S, h.y - 2 * S, 12 * S, 4 * S, "#e8b060"); R(h.x - 5 * S, h.y - 1 * S, 10 * S, 2 * S, "#a83a20");
+      }
+    }
+    // the soul
+    if (!gameOverT && (!hurtT || Math.floor(t * 30) % 2)) soulHeart(soul.x, soul.y, soulBlue ? "#1f5cff" : "#ff1a1a");
+  } else if (phase === "aim") {
+    // the attack target: an eye, and a bar sliding across
+    ellipse(box.x + box.w / 2, box.y + box.h / 2, box.w / 2 - 6 * S, box.h / 2 - 8 * S, "#2a2a2a");
+    ellipse(box.x + box.w / 2, box.y + box.h / 2, 8 * S, box.h / 2 - 10 * S, "#fff");
+    ellipse(box.x + box.w / 2, box.y + box.h / 2, 6 * S, box.h / 2 - 12 * S, "#000");
+    const ax = box.x + 6 * S + aimX * (box.w - 12 * S);
+    R(ax - 2 * S, box.y + 4 * S, 4 * S, box.h - 8 * S, "#fff");
+    R(ax - 1 * S, box.y + 5 * S, 2 * S, box.h - 10 * S, "#000");
+  } else if (phase === "act" || phase === "item") {
+    const list = phase === "act" ? ACTS : items.map((i) => `${i.name}${i.n ? "" : " (GONE)"}`);
+    list.forEach((l, i) => {
+      const x = box.x + 18 * S + (i % 2) * 110 * S, y = box.y + 10 * S + Math.floor(i / 2) * 14 * S;
+      if (i === sub) soulHeart(x - 8 * S, y + 2 * S, "#ff1a1a");
+      text(`* ${l}`, x, y, S, "#fff");
+    });
+  } else {
+    // flavor text / results / talking
+    const msg = phase === "won" ? "* YOU WON! * Sans got splattered with ketchup. * He offers to buy you a burger at Grillby's. (Z)"
+              : (phase === "result" ? resultText : flavor);
+    wrap(msg, box.w - 16 * S, S).forEach((l, i) => text(l, box.x + 8 * S, box.y + 8 * S + i * 9 * S, S, "#fff"));
+    if (phase === "result" && resultText === "MISS") {
+      text("MISS", W / 2 + 18 * S, 48 * S, 2 * S, "#b0b0b0");
+    }
+  }
+  ctx.restore();
+
+  // the ketchup slash across Sans on the winning hit
+  if (phase === "won" && phaseT < 0.8) {
+    ctx.globalAlpha = 1 - phaseT / 0.8;
+    for (let k = 0; k < 4; k++) poly([[W / 2 - 20 * S + k * 3 * S, 14 * S], [W / 2 - 16 * S + k * 3 * S, 14 * S],
+                                      [W / 2 + 22 * S + k * 3 * S, 60 * S], [W / 2 + 18 * S + k * 3 * S, 60 * S]], "#d81e2a");
+    ctx.globalAlpha = 1;
+  }
+
+  // name, HP, KR
+  const sy = Math.round(H * 0.47) + 66 * S + 8 * S, lx = Math.round(W / 2 - 112 * S);
+  text("YOU   LV 1", lx, sy, S, "#fff");
+  const hx = lx + 52 * S;
+  text("HP", hx, sy, S, "#fff");
+  const bw = 46 * S;
+  R(hx + 10 * S, sy - 1 * S, bw, 7 * S, "#c00");
+  R(hx + 10 * S, sy - 1 * S, bw * hp / MAX_HP, 7 * S, "#ff2");
+  if (kr) R(hx + 10 * S + bw * (hp - kr) / MAX_HP, sy - 1 * S, bw * kr / MAX_HP, 7 * S, "#d020d0");
+  text("KR", hx + 14 * S + bw, sy, S, kr ? "#d020d0" : "#fff");
+  text(`${hp} / ${MAX_HP}`, hx + 26 * S + bw, sy, S, kr ? "#d020d0" : "#fff");
+  text(`TURN ${Math.min(turn, 25)}/25`, W - textWidth("TURN 25/25", S) - 6 * S, 6 * S, S, "#666");
+
+  // FIGHT / ACT / ITEM / MERCY
+  const bwid = 52 * S, gap = 10 * S, total = 4 * bwid + 3 * gap, by = sy + 12 * S;
+  BUTTONS.forEach((b, i) => {
+    const x = W / 2 - total / 2 + i * (bwid + gap);
+    const on = i === sel && (phase === "menu" || phase === "act" || phase === "item");
+    const col = on ? "#ffe600" : "#ff8c00";
+    R(x, by, bwid, 13 * S, col);
+    R(x + S, by + S, bwid - 2 * S, 11 * S, "#000");
+    if (on && phase === "menu") soulHeart(x + 7 * S, by + 6.5 * S, "#ff1a1a");
+    text(b, x + bwid / 2 - textWidth(b, S) / 2 + (on && phase === "menu" ? 4 * S : 0), by + 4 * S, S, col);
+  });
+
+  // game over
+  if (gameOverT) {
+    ctx.globalAlpha = Math.min(1, (4 - gameOverT) * 2);
+    R(0, 0, W, H, "#000");
+    const m = "GAME OVER";
+    text(m, W / 2 - textWidth(m, 3 * S) / 2, H * 0.35, 3 * S, "#fff");
+    const m2 = "STAY DETERMINED... (PRESS Z)";
+    text(m2, W / 2 - textWidth(m2, S) / 2, H * 0.55, S, "#ccc");
+    ctx.globalAlpha = 1;
+  }
+  // hint
+  if (phase === "menu" && turn === 1) {
+    ctx.globalAlpha = 0.5;
+    const m = "ARROWS: CHOOSE/MOVE   Z: CONFIRM   X: BACK";
+    text(m, W / 2 - textWidth(m, S) / 2, H - 6 * S, S, "#888");
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ================================================================= main loop
+let last = performance.now(), t = 0;
+function frame(now) {
+  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)) * opts.speed;   // never backwards
+  last = Math.max(last, now);
+  t += dt;
+  tAll += dt;
+
+  // nobody playing for a while: back to the quiet hall
+  if (mode === "fight" && tAll - lastKey > 20 && KEYS.size === 0) endFight();
+  if (!opts.game && mode === "fight") endFight();
+
+  if (mode === "fight") { updateFight(dt); drawFight(t); }
+  else drawHall(dt, t);
+
+  if (fade > 0) {
+    fade -= dt;
+    ctx.globalAlpha = Math.max(0, fade * 1.6);
+    R(0, 0, W, H, "#000");
+    ctx.globalAlpha = 1;
+  }
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
+// ================================================================= music (fight only)
+// If you drop your own copy of the song next to this file as music.mp3, that plays.
+// Otherwise WinUx streams it from YouTube (WinUx needs to be running).
+// Panel previews stay silent.
+let audio = null, player = null;
+const isWallpaper = window.top === window;
+function setupMusic() {
+  if (!isWallpaper || audio || player) return;
+  const a = new Audio("music.mp3");
+  a.loop = true;
+  a.addEventListener("canplay", () => { audio = a; }, { once: true });
+  a.addEventListener("error", () => {
+    player = document.createElement("iframe");
+    player.id = "music";
+    player.allow = "autoplay";
+    player.src = `http://127.0.0.1:7777/music?v=${SONG}&vol=${opts.volume}&on=0`;
+    document.body.appendChild(player);
+  }, { once: true });
+  a.load();
+}
+function setMusic(on) {
+  on = on && opts.music;
+  if (audio) {
+    audio.volume = opts.volume / 100;
+    if (on) { audio.currentTime = 0; audio.play().catch(() => {}); } else audio.pause();
+  }
+  if (player) player.contentWindow.postMessage({ winuxMusic: true, on, vol: opts.volume, restart: on }, "*");
+}
+setupMusic();
+
 function livelyPropertyListener(name, val) {
   if (name in opts) opts[name] = val;
+  if (name === "music" || name === "volume") setMusic(mode === "fight");
 }
 </script>
 </body>
