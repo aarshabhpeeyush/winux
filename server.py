@@ -994,6 +994,10 @@ def styler_plan(on):
         plan.append({"index": i, "target": target if on else "//" + target.lstrip("/"), "styles": styles})
     if not on:
         plan = [{"index": e[0], "target": "//" + e[1].lstrip("/"), "styles": e[2]} for e in mine]
+    # nothing to do (and no permission prompt) if the mod already has exactly this
+    now = {i: (t, s) for i, t, s in existing}
+    if all(now.get(p["index"]) == (p["target"], p["styles"]) for p in plan):
+        return None
     return plan
 
 
@@ -1023,7 +1027,7 @@ def which_app(sc):
         return "undertale"
     if exe == "steam.exe":
         return "steam"
-    if exe == "lively.exe":
+    if exe == "lively.exe" or exe.startswith("lively.ui"):   # Lively, or its window (Lively.UI.WinUI.exe)
         return "lively"
     if exe == "zoom.exe":
         return "zoom"
@@ -1085,6 +1089,8 @@ def set_app_icons(pack):
             if not app:
                 continue
             back["shortcuts"].setdefault(sc["path"], sc.get("icon") or "")   # remember the original once
+            if (sc.get("icon") or "").rsplit(",", 1)[0].lower() == files[app].lower():
+                continue                                                    # already pixel
             (admin if sc["place"] in ADMIN_PLACES else user).append({"path": sc["path"], "icon": files[app]})
         if "folder" not in back or back.get("folderSaved") is not True:
             try:
