@@ -41,6 +41,10 @@ PALETTE = {
     "d": (66, 252, 255, 255),     #   cyan (patience)
     "e": (0, 60, 255, 255),       #   blue (integrity)
     "g": (213, 53, 217, 255),     #   purple (perseverance)
+    "z": (45, 140, 255, 255),     # zoom blue
+    "p": (55, 118, 171, 255),     # python blue
+    "q": (255, 212, 59, 255),     # python yellow
+    "m": (130, 130, 145, 255),    # task view grey
 }
 
 
@@ -262,12 +266,59 @@ def lively(c):
         heart(x, y, col)
 
 
+def zoom(c):
+    c.rect(1, 1, 14, 14, "z")
+    for x, y in ((1, 1), (14, 1), (1, 14), (14, 14)):
+        c.put(x, y, ".")
+    c.rect(3, 5, 9, 10, "W")                       # the camera body
+    c.poly([(9.5, 7.5), (13, 5), (13, 11), (9.5, 8.5)], "W")   # and its lens
+
+
+def python(c):
+    paint(c, [                                     # two snakes: blue on top, yellow below
+        "................",
+        ".....pppppp.....",
+        "....pWpppppp....",
+        "....pppppppp....",
+        "........pppp....",
+        "..pppppppppp.qq.",
+        ".ppppppppppp.qqq",
+        ".ppppppppppp.qqq",
+        ".ppp.qqqqqqqqqqq",
+        ".ppp.qqqqqqqqqqq",
+        "..pp.qqqqqqqqqq.",
+        "....qqqq........",
+        "....qqqqqqqq....",
+        "....qqqqqqWq....",
+        ".....qqqqqq.....",
+    ])
+
+
+def taskview(c):
+    c.rect(5, 2, 14, 10, "m")                      # back window
+    c.rect(6, 4, 13, 9, "K")
+    c.rect(1, 6, 10, 14, "W")                      # front window
+    c.rect(1, 6, 10, 7, "L")
+
+
+def controller(c):
+    c.poly([(2, 5), (14, 5), (15.5, 12), (12.5, 13), (10.5, 10), (5.5, 10), (3.5, 13), (0.5, 12)], "L")
+    c.rect(3, 7, 5, 7, "K")                        # d-pad
+    c.rect(4, 6, 4, 8, "K")
+    c.put(11, 6, "H")                              # buttons
+    c.put(12, 7, "U")
+    c.put(10, 7, "S")
+    c.put(11, 8, "Y")
+
+
 ICONS = {
     "chrome": ("Chrome", chrome), "files": ("File Explorer", files), "folder": ("Folders", folder),
     "claude": ("Claude", claude), "vlc": ("VLC", vlc), "discord": ("Discord", discord),
     "spotify": ("Spotify", spotify), "roblox": ("Roblox", roblox), "deltarune": ("DELTARUNE", deltarune),
     "undertale": ("UNDERTALE", undertale), "windows": ("Windows", windows), "search": ("Search", search),
     "steam": ("Steam", steam), "lively": ("Lively Wallpaper", lively),
+    "zoom": ("Zoom", zoom), "python": ("Python", python), "taskview": ("Task View", taskview),
+    "controller": ("Games", controller),
 }
 
 

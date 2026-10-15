@@ -954,6 +954,9 @@ def styler_plan(on):
     mine = [e for e in existing if e[2][:1] == [STYLER_MARK]]
     win = Path(app_icons.taskbar_png("windows", app_icons.OUT / "taskbar-windows.png")).as_uri()
     search = Path(app_icons.taskbar_png("search", app_icons.OUT / "taskbar-search.png")).as_uri()
+    taskview = Path(app_icons.taskbar_png("taskview", app_icons.OUT / "taskbar-taskview.png")).as_uri()
+    task_btn = ("Taskbar.ExperienceToggleButton#LaunchListButton[AutomationProperties.AutomationId=TaskViewButton]"
+                " > Taskbar.TaskListButtonPanel")
     # the wide search box keeps its icon on the left; the icon-only button centers it
     # (the Vertical Taskbar mod always shows search as just an icon)
     vertical = False
@@ -978,6 +981,11 @@ def styler_plan(on):
         ("SearchUx.SearchUI.SearchButtonRootGrid#SearchBoxButtonRootPanel > Grid > Border#BackgroundElement, "
          "SearchUx.SearchUI.SearchButtonRootGrid#SearchBoxButtonRootPanel > Border#BackgroundElement",
          [STYLER_MARK, f'Background:=<ImageBrush Stretch="Uniform" AlignmentX="{align}" ImageSource="{search}" />']),
+        (f"{task_btn} > Grid > Microsoft.UI.Xaml.Controls.AnimatedVisualPlayer, "
+         f"{task_btn} > Microsoft.UI.Xaml.Controls.AnimatedVisualPlayer",
+         [STYLER_MARK, "Visibility=Collapsed"]),
+        (f"{task_btn} > Grid > Border#BackgroundElement, {task_btn} > Border#BackgroundElement",
+         [STYLER_MARK, f'Background:=<ImageBrush Stretch="Uniform" ImageSource="{taskview}" />']),
     ]
     # reuse WinUx's old slots, add new ones after everything else
     slots = [e[0] for e in mine] + list(range(len(existing), len(existing) + len(wanted)))
@@ -1017,6 +1025,12 @@ def which_app(sc):
         return "steam"
     if exe == "lively.exe":
         return "lively"
+    if exe == "zoom.exe":
+        return "zoom"
+    if exe in ("python.exe", "pythonw.exe") or name.startswith("idle"):
+        return "python"
+    if "quest-completer" in exe or "quest completer" in name:
+        return "controller"
     return None
 
 
