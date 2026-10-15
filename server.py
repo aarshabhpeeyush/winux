@@ -1088,7 +1088,10 @@ def set_app_icons(pack):
             app = which_app(sc)
             if not app:
                 continue
-            back["shortcuts"].setdefault(sc["path"], sc.get("icon") or "")   # remember the original once
+            orig = sc.get("icon") or ""
+            if "app-icons" in orig.lower():
+                orig = ""                     # already a WinUx icon: the original is the app's own
+            back["shortcuts"].setdefault(sc["path"], orig)   # remember the original once
             if (sc.get("icon") or "").rsplit(",", 1)[0].lower() == files[app].lower():
                 continue                                                    # already pixel
             (admin if sc["place"] in ADMIN_PLACES else user).append({"path": sc["path"], "icon": files[app]})
@@ -1105,6 +1108,21 @@ def set_app_icons(pack):
         for path, icon in back["shortcuts"].items():
             if path in places:
                 (admin if places[path] in ADMIN_PLACES else user).append({"path": path, "icon": icon})
+        # Repair shortcuts that WinUx 1.0.1 broke when putting icons back: it wrote
+        # "app.exe,0,0" (one number too many), which shows a blank icon.
+        done = {j["path"] for j in user + admin}
+        for sc in shortcuts:
+            icon = sc.get("icon") or ""
+            if sc["path"] in done:
+                continue
+            if re.search(r",-?\d+,-?\d+$", icon):
+                fixed = icon.rsplit(",", 1)[0]
+                (admin if sc["place"] in ADMIN_PLACES else user).append(
+                    {"path": sc["path"], "icon": fixed if not fixed.startswith(",") else ",0"})
+            elif "app-icons" in icon.lower() and "generated" in icon.lower():
+                # a WinUx icon WinUx didn't put there itself (e.g. an app pinned while icons
+                # were pixel copies the pixel icon): back to the app's own icon
+                (admin if sc["place"] in ADMIN_PLACES else user).append({"path": sc["path"], "icon": ""})
         folder = (back.get("folder") or "").rsplit(",", 1)[0] if back.get("folderSaved") else None
     APP_ICONS_BACKUP.write_text(json.dumps(back, indent=2), encoding="utf-8")
 

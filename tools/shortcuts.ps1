@@ -23,7 +23,10 @@ function Set-Icon($path, $icon) {
         Set-Content -LiteralPath $path -Value $new -Encoding ASCII
     } else {
         $s = $ws.CreateShortcut($path)
-        $s.IconLocation = $(if ($icon) { "$icon,0" } else { ",0" })
+        # "file.ico" gets ",0" added; "file.exe,3" (an original icon WinUx saved) is used as-is
+        if (-not $icon -or $icon -eq ",0") { $s.IconLocation = ",0" }
+        elseif ($icon -match ",-?\d+$") { $s.IconLocation = $icon }
+        else { $s.IconLocation = "$icon,0" }
         $s.Save()
     }
     # touch it so Explorer notices

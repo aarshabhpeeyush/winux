@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.1 (fixed edition) (2026-10-15)
+
+- **Fixed:** picking ORIGINAL in App icons left some icons blank. It now puts every icon back
+  correctly, and it also repairs shortcuts the first 1.0.1 broke. If your icons went blank,
+  update and click **ORIGINAL** again.
+- Apps pinned while pixel icons were on now go back to their own icon too.
+
 ## 1.0.1 (2026-10-15)
 
 - 6 new widgets:
