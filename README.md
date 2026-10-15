@@ -51,6 +51,21 @@ Desktop widgets in Deltarune text boxes (powered by Rainmeter). Turn them on in 
 
 Right-click any widget → **Edit skin** to change things like the Weather city or the shop items.
 
+## App icons
+
+In **ICONS+SOUNDS → App icons**, pick **Pixel** to give your apps pixel-art logos: on the
+desktop, in the Start menu and on the taskbar. Covered so far: Chrome, File Explorer,
+folders, Claude, VLC, Discord, Spotify, Roblox, DELTARUNE, UNDERTALE, Steam, Lively, Zoom
+and Python. Pick **Original** to put every icon back.
+
+- Windows asks for permission once, for shortcuts shared by everyone and the folder icon.
+- On Windows 11 with Windhawk's **Taskbar Styler** mod, the Start button (classic
+  four-color logo), search and Task View get pixel icons too.
+- Apps only change when they're **pinned** or have a shortcut. Pin an app, then click
+  **Pixel** again.
+- Some apps can't change: Store-style apps (like Claude), and app badges such as
+  Discord's notification counter, which apps draw themselves.
+
 You can also save your own themes, add your own wallpapers / videos / GIFs, and turn a
 drawing into a theme (ART → THEME pulls the colors out of a PNG).
 

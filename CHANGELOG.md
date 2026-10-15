@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.1 (not released yet)
+## 1.0.1 (2026-10-15)
 
 - 6 new widgets:
   - **Weather**: the weather as a Spamton sales pitch ("THE CURRENT WEATHER IS [[CLOUDY]]!!"). Uses wttr.in, no account.
