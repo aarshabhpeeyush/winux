@@ -6,11 +6,16 @@
 <style>
   html, body { margin: 0; height: 100%; background: #2a1a08; overflow: hidden; }
   canvas { width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
+  #sansArt, #sansFx { position: fixed; display: none; pointer-events: none; }
+  /* a white outline around him, so his black shorts show up on the black battle screen */
+  #sansArt { filter: drop-shadow(3px 0 0 #fff) drop-shadow(-3px 0 0 #fff) drop-shadow(0 3px 0 #fff) drop-shadow(0 -3px 0 #fff); }
   #music { position: fixed; width: 1px; height: 1px; left: -10px; top: -10px; border: 0; opacity: 0; pointer-events: none; }
 </style>
 </head>
 <body>
 <canvas id="c" tabindex="0"></canvas>
+<img id="sansArt" alt="">
+<canvas id="sansFx"></canvas>
 <script>
 // Judgment Hall: golden windows, pillars, light beams and dust, with Sans waiting.
 // Press any key to fight him, just for fun. He dodges everything... until turn 25,
@@ -192,6 +197,58 @@ function drawHall(dt, t) {
 
 // ================================================================= THE FIGHT
 
+// Sans's look in the fight, best first:
+//  1. sans-art.png: the user's own drawing, shown at full resolution on top of the canvas
+//  2. sans.png: a pixel sprite, turned into crisp sprite pixels
+//  3. the Sans drawn in code below
+const artEl = document.getElementById("sansArt"), fxEl = document.getElementById("sansFx");
+let sansArt = null;
+(function loadSansArt() {
+  const im = new Image();
+  im.onload = () => {
+    // make the white around him see-through (in case the picture has a white background)
+    const w = im.naturalWidth, h = im.naturalHeight;
+    const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+    const g = cv.getContext("2d"); g.drawImage(im, 0, 0);
+    const d = g.getImageData(0, 0, w, h), px = d.data, seen = new Uint8Array(w * h), stack = [];
+    const bg = (i) => px[i * 4 + 3] < 20 || (px[i * 4] > 245 && px[i * 4 + 1] > 245 && px[i * 4 + 2] > 245);
+    for (let x = 0; x < w; x++) stack.push(x, (h - 1) * w + x);
+    for (let y = 0; y < h; y++) stack.push(y * w, y * w + w - 1);
+    while (stack.length) {
+      const i = stack.pop();
+      if (seen[i] || !bg(i)) continue;
+      seen[i] = 1; px[i * 4 + 3] = 0;
+      const x = i % w;
+      if (x > 0) stack.push(i - 1); if (x < w - 1) stack.push(i + 1);
+      if (i >= w) stack.push(i - w); if (i < w * (h - 1)) stack.push(i + w);
+    }
+    g.putImageData(d, 0, 0);
+    artEl.src = cv.toDataURL();
+    sansArt = { w, h };
+  };
+  im.src = "sans-art.png";
+})();
+
+// Place the drawn Sans over the canvas (canvas pixels -> screen pixels).
+function sansFromArt(cx, top, p, t, look) {
+  const k = innerWidth / W;                                // one canvas pixel on screen
+  const hh = 56 * p * k, ww = hh * sansArt.w / sansArt.h;
+  const x = (cx + look.dodge * p) * k - ww / 2, y = (top + Math.sin(t * 2.4) * 0.5 * p) * k;
+  Object.assign(artEl.style, { display: "block", left: x + "px", top: y + "px", width: ww + "px", height: hh + "px" });
+  if (look.ketchup) {
+    fxEl.width = Math.round(ww); fxEl.height = Math.round(hh);
+    Object.assign(fxEl.style, { display: "block", left: x + "px", top: y + "px", width: ww + "px", height: hh + "px" });
+    const g = fxEl.getContext("2d");
+    g.clearRect(0, 0, ww, hh);
+    g.globalAlpha = Math.min(1, look.ketchup);
+    g.fillStyle = "#d81e2a";
+    const blob = (fx, fy, rx, ry) => { g.beginPath(); g.ellipse(ww * fx, hh * fy, ww * rx, hh * ry, 0, 0, Math.PI * 2); g.fill(); };
+    blob(0.62, 0.17, 0.13, 0.06); blob(0.4, 0.5, 0.1, 0.05); blob(0.7, 0.42, 0.06, 0.03);
+    for (let i = 0; i < 7; i++) g.fillRect(ww * (0.3 + i * 0.07), hh * (0.22 + (i % 3) * 0.04), ww * 0.02, hh * (0.04 + (i % 3) * 0.02));
+  } else fxEl.style.display = "none";
+}
+function hideSansArt() { artEl.style.display = "none"; fxEl.style.display = "none"; }
+
 // If sans.png sits next to this file, the fight uses it as Sans's sprite.
 // Its white background is made see-through and it's shrunk to real sprite pixels.
 let sansImg = null;
@@ -250,6 +307,7 @@ function prepSprite(im) {
 // round skull, big eye sockets with white pupils, the grin with its teeth,
 // a hoodie with fur trim over a white shirt, shorts and slippers.
 function sansBattle(cx, top, p, t, look) {
+  if (sansArt) return sansFromArt(cx, top, p, t, look);
   if (sansImg) return sansFromPng(cx, top, p, t, look);
   const W2 = "#ffffff", K = "#000000";
   const sway = look.dodge;                                  // sidestep when he dodges
@@ -721,7 +779,7 @@ function drawFight(t) {
   // speech bubble
   if (speechT > 0 && speech) {
     const bw = 120 * S, lines = wrap(speech, bw - 8 * S, S);
-    const bx = Math.round(W / 2 + 26 * S), by = 10 * S, bh = lines.length * 8 * S + 6 * S;
+    const bx = Math.round(W / 2 + 40 * S), by = 10 * S, bh = lines.length * 8 * S + 6 * S;
     R(bx - S, by - S, bw + 2 * S, bh + 2 * S, "#000");
     R(bx, by, bw, bh, "#fff");
     poly([[bx, by + 8 * S], [bx - 6 * S, by + 11 * S], [bx, by + 14 * S]], "#fff");
@@ -811,6 +869,7 @@ function drawFight(t) {
 
   // game over
   if (gameOverT) {
+    hideSansArt();
     ctx.globalAlpha = Math.min(1, (4 - gameOverT) * 2);
     R(0, 0, W, H, "#000");
     const m = "GAME OVER";
@@ -841,7 +900,7 @@ function frame(now) {
   if (!opts.game && mode === "fight") endFight();
 
   if (mode === "fight") { updateFight(dt); drawFight(t); }
-  else drawHall(dt, t);
+  else { hideSansArt(); drawHall(dt, t); }
 
   if (fade > 0) {
     fade -= dt;
