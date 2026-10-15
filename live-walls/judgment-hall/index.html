@@ -202,8 +202,8 @@ function drawHall(dt, t) {
 //  2. sans.png: a pixel sprite, turned into crisp sprite pixels
 //  3. the Sans drawn in code below
 const artEl = document.getElementById("sansArt"), fxEl = document.getElementById("sansFx");
-let sansArt = null;
-(function loadSansArt() {
+let sansArt = null, artPlain = "", artKetchup = "";
+function loadArt(src, done) {
   const im = new Image();
   im.onload = () => {
     // make the white around him see-through (in case the picture has a white background)
@@ -223,11 +223,13 @@ let sansArt = null;
       if (i >= w) stack.push(i - w); if (i < w * (h - 1)) stack.push(i + w);
     }
     g.putImageData(d, 0, 0);
-    artEl.src = cv.toDataURL();
-    sansArt = { w, h };
+    done(cv.toDataURL(), w, h);
   };
-  im.src = "sans-art.png";
-})();
+  im.src = src;
+}
+loadArt("sans-art.png", (url, w, h) => { artPlain = url; artEl.src = url; sansArt = { w, h }; });
+// the user's ketchup-covered Sans, for the winning hit
+loadArt("sans-art-ketchup.png", (url) => { artKetchup = url; });
 
 // Place the drawn Sans over the canvas (canvas pixels -> screen pixels).
 function sansFromArt(cx, top, p, t, look) {
@@ -235,7 +237,9 @@ function sansFromArt(cx, top, p, t, look) {
   const hh = 56 * p * k, ww = hh * sansArt.w / sansArt.h;
   const x = (cx + look.dodge * p) * k - ww / 2, y = (top + Math.sin(t * 2.4) * 0.5 * p) * k;
   Object.assign(artEl.style, { display: "block", left: x + "px", top: y + "px", width: ww + "px", height: hh + "px" });
-  if (look.ketchup) {
+  const want = look.ketchup && artKetchup ? artKetchup : artPlain;
+  if (want && artEl.src !== want) artEl.src = want;
+  if (look.ketchup && !artKetchup) {
     fxEl.width = Math.round(ww); fxEl.height = Math.round(hh);
     Object.assign(fxEl.style, { display: "block", left: x + "px", top: y + "px", width: ww + "px", height: hh + "px" });
     const g = fxEl.getContext("2d");
