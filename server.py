@@ -867,6 +867,8 @@ def which_app(sc):
         return "undertale"
     if exe == "steam.exe":
         return "steam"
+    if exe == "lively.exe":
+        return "lively"
     return None
 
 
@@ -940,7 +942,8 @@ def set_app_icons(pack):
 
     log = run_tool("set", {"shortcuts": user}) or [] if user else []
     admin_ok = True
-    if admin or pack == "pixel" or back.get("folderSaved"):
+    folder_done = back.get("folderApplied") == (folder or "")
+    if admin or not folder_done:
         res = run_tool("admin", {"shortcuts": admin, "folder": folder or ""}, admin=True)
         admin_ok = res is not None
         log += res or []
@@ -948,6 +951,8 @@ def set_app_icons(pack):
         back = {"pack": "default", "shortcuts": {}, "folder": None}
     else:
         back["pack"] = pack
+        if admin_ok:
+            back["folderApplied"] = folder or ""
     APP_ICONS_BACKUP.write_text(json.dumps(back, indent=2), encoding="utf-8")
     refresh_icons()
     try:

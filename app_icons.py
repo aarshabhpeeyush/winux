@@ -35,6 +35,12 @@ PALETTE = {
     "2": (124, 187, 0, 255),      #   green
     "3": (0, 164, 239, 255),      #   blue
     "4": (255, 185, 0, 255),      #   yellow
+    "a": (255, 165, 0, 255),      # the 7 souls: orange (bravery)
+    "b": (255, 255, 0, 255),      #   yellow (justice)
+    "c": (0, 192, 0, 255),        #   green (kindness)
+    "d": (66, 252, 255, 255),     #   cyan (patience)
+    "e": (0, 60, 255, 255),       #   blue (integrity)
+    "g": (213, 53, 217, 255),     #   purple (perseverance)
 }
 
 
@@ -244,12 +250,24 @@ def steam(c):
     c.line(5, 11, 9.2, 7.2, 1.3, "W")
 
 
+def lively(c):
+    # Lively Wallpaper: the 7 human souls, red (determination) in the middle
+    def heart(x, y, col):
+        paint(c, [""] * y + ["." * x + col + "." + col,
+                             "." * x + col * 3,
+                             "." * x + "." + col])
+    heart(6, 6, "H")
+    for (x, y), col in (((6, 1), "a"), ((11, 3), "b"), ((11, 9), "c"),
+                        ((6, 11), "d"), ((1, 9), "e"), ((1, 3), "g")):
+        heart(x, y, col)
+
+
 ICONS = {
     "chrome": ("Chrome", chrome), "files": ("File Explorer", files), "folder": ("Folders", folder),
     "claude": ("Claude", claude), "vlc": ("VLC", vlc), "discord": ("Discord", discord),
     "spotify": ("Spotify", spotify), "roblox": ("Roblox", roblox), "deltarune": ("DELTARUNE", deltarune),
     "undertale": ("UNDERTALE", undertale), "windows": ("Windows", windows), "search": ("Search", search),
-    "steam": ("Steam", steam),
+    "steam": ("Steam", steam), "lively": ("Lively Wallpaper", lively),
 }
 
 
