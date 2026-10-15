@@ -28,7 +28,7 @@ Every theme comes with its own animated pixel-art wallpaper.
 | TV World | Tenna's studio: spotlights, curtains, channel changes |
 | Snowdin | **♪ Music**: snowy town at night, with the Snowdin Town song |
 | Waterfall | Glowing echo flowers and falling water |
-| Judgment Hall | Golden light. Someone is waiting. |
+| Judgment Hall | **▶ Playable + ♪ Music**: press a key to fight Sans for fun (his song plays during the fight) |
 | Forgotten Man | **♪ Music**: his red tree, and his theme |
 
 ## Widgets
@@ -48,6 +48,10 @@ Desktop widgets in Deltarune text boxes (powered by Rainmeter). Turn them on in 
 | Save Point | Click the star to save |
 | Tem Shop | hOI!! Opens your apps |
 | Focus Timer | FIGHT your task for 25 minutes, then take a break |
+| Party Stats | Deltarune style: Kris, Susie and Ralsei's HP is your free CPU, RAM and disk |
+| Annoying Dog | Wanders along your screen, naps, and barks when you click it |
+| Mettaton Ratings | Your internet speed as Mettaton's TV ratings |
+| Bullet Board | Music visualizer: bones rise to the beat, your soul hops |
 
 Right-click any widget → **Edit skin** to change things like the Weather city or the shop items.
 
@@ -142,6 +146,7 @@ Own the soundtrack? Put the song in the theme's folder (for example
   connected to Toby Fox or his team. All the pixel art in WinUx is fan art drawn for it.
 - Fonts: [VT323](https://fonts.google.com/specimen/VT323) and
   [Press Start 2P](https://fonts.google.com/specimen/Press+Start+2P), under the SIL Open Font License.
+- The Sans art in Judgment Hall (battle, ketchup, silhouette and blue-eye) was drawn for WinUx by its creator.
 - Built with [Claude Code](https://claude.com/claude-code).
 
 ## License

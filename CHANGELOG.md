@@ -1,6 +1,11 @@
 # Changelog
 
-## 1.0.2 (in progress, not released)
+## 1.0.2 beta (2026-10-15)
+
+A first look at 1.0.2. Still coming in the full 1.0.2: four new themes (Hotland + CORE,
+the Ruins, Mettaton's stage, Spamton's basement), sharing themes as files, a startup
+jingle, a tray menu + hotkey, lock screen matching, and a soul color picker.
+
 
 - 4 new widgets:
   - **Party Stats**: a Deltarune-style twin of PC Status. Kris, Susie and Ralsei's HP is your
@@ -12,7 +17,8 @@
   His real moves (blue-soul gravity, bone walls, Gaster Blasters, blue bones, bone stabs,
   KARMA) plus new ones (ketchup rain, hot dog barrage, bones that spell HEH). He dodges every
   FIGHT... until turn 25, when you hit him with ketchup. "Song That Might Play When You Fight
-  Sans" plays only during the fight.
+  Sans" plays only during the fight. Sans is the WinUx creator's own art, including a
+  ketchup-covered version, a silhouette for the hall and his blue eye.
 - Fixed: turning on a widget could fail with "Couldn't find the widget" while Rainmeter was
   saving its settings, and updated widgets didn't always reload.
 
