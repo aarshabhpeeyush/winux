@@ -11,6 +11,11 @@
 <body>
 <canvas id="c" tabindex="0"></canvas>
 <script>
+// tell WinUx (for achievements); does nothing if WinUx isn't running
+function winuxEvent(e) {
+  if (location.search.includes("snapshot")) return;
+  try { fetch("http://127.0.0.1:7777/event?e=" + e, { mode: "no-cors" }).catch(() => {}); } catch { /* fine */ }
+}
 // Soul Red: a little playable battle, in black and white (only the soul and HP bar have color). Flowey shoots pellets at your soul.
 // Arrow keys / WASD move the soul (click the desktop first so it gets the keys).
 // Leave it alone for a few seconds and the soul dodges by itself.
@@ -163,7 +168,7 @@ addEventListener("keydown", (e) => {
     soul.x += k === "r" ? n : k === "l" ? -n : 0;
     soul.y += k === "d" ? n : k === "u" ? -n : 0;
   }
-  if (mode === "auto") { mode = "player"; say = "LET'S PLAY!"; sayT = 2.5; }
+  if (mode === "auto") { mode = "player"; say = "LET'S PLAY!"; sayT = 2.5; winuxEvent("wall-play"); }
   lastKey = t;
   e.preventDefault();
 });

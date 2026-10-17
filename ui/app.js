@@ -133,6 +133,7 @@ for (const btn of document.querySelectorAll("#menu button[data-tab]")) {
     if (btn.dataset.tab === "taskbar") loadMods();
     if (btn.dataset.tab === "widgets") loadWidgets();
     if (btn.dataset.tab === "themes") loadThemes();
+    if (btn.dataset.tab === "achievements") loadAchievements();
   });
 }
 
@@ -464,7 +465,7 @@ function renderVersion() {
   if (state.version) $("version").textContent = "v" + state.version;
 }
 
-// lock screen follows the wallpaper
+// folder colors: the right-click menu
 $("folderMenu").addEventListener("change", async (e) => {
   try {
     state = { ...state, ...(await api("/api/folder-menu", { method: "POST", body: { on: e.target.checked } })) };
@@ -484,6 +485,7 @@ $("resetFolders").addEventListener("click", async () => {
   } catch (err) { say(err.message, true); }
 });
 
+// lock screen follows the wallpaper
 $("lockMatch").addEventListener("change", async (e) => {
   try {
     await api("/api/pref", { method: "POST", body: { key: "lockScreen", value: e.target.checked } });
@@ -962,6 +964,7 @@ $("makerShare").addEventListener("click", () => {
   link.click();
   setTimeout(() => URL.revokeObjectURL(link.href), 5000);
   say("Saved as a .winuxcursor file. Send it to a friend!");
+  winuxEvent("share");
 });
 
 $("makerImport").addEventListener("change", async (e) => {
@@ -1195,6 +1198,7 @@ function themeCard(t, deletable) {
         link.click();
         setTimeout(() => URL.revokeObjectURL(link.href), 5000);
         say(`"${t.name}" saved as a .winux file. Send it to a friend!`);
+        winuxEvent("share");
       } catch (err) {
         say(err.message, true);
       }
@@ -1304,3 +1308,70 @@ document.querySelector('#menu button[data-tab="backup"]').addEventListener("clic
     say("Couldn't talk to the WinUx helper. Is it running?", true);
   }
 })();
+
+// ---------------------------------------------------------------- achievements
+
+const ACH_SAYS = { winux: "Using WinUx", walls: "Playing the walls", pc: "Using your PC", secret: "Secret" };
+
+function winuxEvent(e) {
+  api("/api/event", { method: "POST", body: { e } }).then(showNewAchievements).catch(() => {});
+}
+
+let achShown = new Set();
+function showNewAchievements(a) {
+  if (!a || !a.unseen) return;
+  $("achCount").textContent = `${a.got}/${a.total}`;
+  const fresh = a.unseen.filter((id) => !achShown.has(id));
+  if (!fresh.length) return;
+  fresh.forEach((id) => achShown.add(id));
+  const names = fresh.map((id) => a.list.find((x) => x.id === id)?.name).filter(Boolean);
+  say(`★ ACHIEVEMENT GET! ${names.join(", ")}`);
+  try { new Audio("/gen/sounds/save.wav").play(); } catch { /* no sound */ }
+  if (!$("tab-achievements").classList.contains("hidden")) renderAchievements(a);
+}
+
+function renderAchievements(a) {
+  $("achBar").style.width = `${Math.round((100 * a.got) / a.total)}%`;
+  $("achText").textContent = `${a.got} / ${a.total}`;
+  $("achCount").textContent = `${a.got}/${a.total}`;
+  const h = Math.floor(a.stats.minutes / 60), m = a.stats.minutes % 60;
+  $("achStats").textContent = `* PC time with WinUx: ${h}h ${m}m   * Dog pets: ${a.stats.dogPets}   ` +
+    `* Times dunked on: ${a.stats.sansLosses}   * Themes tried: ${a.stats.themes}   * Tasks defeated: ${a.stats.timerWins}`;
+  for (const box of document.querySelectorAll(".achs")) {
+    box.innerHTML = "";
+    for (const x of a.list.filter((x) => x.cat === box.dataset.cat)) {
+      const card = document.createElement("div");
+      card.className = "ach" + (x.got ? " got" : "") + (a.unseen.includes(x.id) ? " new" : "");
+      card.innerHTML = `<div class="ach-icon"></div><div><div class="ach-name"></div><div class="ach-desc"></div></div>`;
+      card.querySelector(".ach-icon").textContent = x.icon;
+      card.querySelector(".ach-name").textContent = x.name;
+      card.querySelector(".ach-desc").textContent = x.got ? `${x.desc} (${x.got})` : x.desc;
+      box.appendChild(card);
+    }
+  }
+}
+
+async function loadAchievements() {
+  try {
+    const a = await api("/api/achievements");
+    a.unseen.forEach((id) => achShown.add(id));
+    renderAchievements(a);
+    if (a.unseen.length) api("/api/achievements-seen", { method: "POST" }).catch(() => {});
+  } catch (e) { say(e.message, true); }
+}
+
+// check now and then (walls, widgets and the folder menu report to WinUx on their own)
+async function pollAchievements() {
+  if (document.hidden) return;
+  try { showNewAchievements(await api("/api/achievements")); } catch { /* WinUx closed */ }
+}
+setInterval(pollAchievements, 6000);
+setTimeout(pollAchievements, 1500);
+
+// secret: click the logo 10 times
+let logoClicks = [];
+document.querySelector(".logo").addEventListener("click", () => {
+  const now = Date.now();
+  logoClicks = logoClicks.filter((t) => now - t < 4000).concat(now);
+  if (logoClicks.length === 10) { say("* Stop that. It tickles."); winuxEvent("logo"); }
+});

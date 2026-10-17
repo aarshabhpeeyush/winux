@@ -12,6 +12,11 @@
 <body>
 <canvas id="c"></canvas>
 <script>
+// tell WinUx (for achievements); does nothing if WinUx isn't running
+function winuxEvent(e) {
+  if (location.search.includes("snapshot")) return;
+  try { fetch("http://127.0.0.1:7777/event?e=" + e, { mode: "no-cors" }).catch(() => {}); } catch { /* fine */ }
+}
 // Snowdin: a snowy night in town. Pine trees, cozy houses with warm windows,
 // blinking string lights, a snowman, and snow that never stops.
 // Plays the Snowdin Town music.
@@ -202,6 +207,7 @@ function updateMusic() {
     if (opts.music) audio.play().catch(() => {}); else audio.pause();
   }
   if (player) player.contentWindow.postMessage({ winuxMusic: true, on: opts.music, vol: opts.volume }, "*");
+  if (opts.music && opts.volume > 0) winuxEvent("music");
 }
 startMusic();
 

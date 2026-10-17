@@ -11,6 +11,11 @@
 <body>
 <canvas id="c" tabindex="0"></canvas>
 <script>
+// tell WinUx (for achievements); does nothing if WinUx isn't running
+function winuxEvent(e) {
+  if (location.search.includes("snapshot")) return;
+  try { fetch("http://127.0.0.1:7777/event?e=" + e, { mode: "no-cors" }).catch(() => {}); } catch { /* fine */ }
+}
 // Cyber City, pink edition: a neon skyline, traffic streaking past, and
 // Spamton NEO's silhouette hanging on green strings in the middle of it all.
 //
@@ -356,7 +361,7 @@ addEventListener("keydown", (e) => {
   if (!k || !opts.game) return;
   e.preventDefault();
   lastKey = tBattle;
-  if (mode === "city") { startBattle(); return; }
+  if (mode === "city") { startBattle(); winuxEvent("wall-play"); return; }
   if (k === "c" && !e.repeat) heal();
   KEYS.add(k);
 });

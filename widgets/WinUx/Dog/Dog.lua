@@ -14,6 +14,14 @@ function Initialize()
   state, timer, tick, said = "walk", math.random(40, 120), 0, 0
 end
 
+-- tell WinUx (for achievements): WinUx reads backups\\events.txt once a minute
+local function report(name)
+  local dir = SKIN:GetVariable("WinUxDir", "")
+  if dir == "" then return end
+  local f = io.open(dir .. "\\backups\\events.txt", "a")
+  if f then f:write(name .. "\n"); f:close() end
+end
+
 local function set(var, value)
   SKIN:Bang("!SetVariable", var, value)
 end
@@ -26,6 +34,7 @@ end
 function Pet()
   -- click: it barks and hops (and wakes up)
   say("BARK!", 15)
+  report("dog-pet")
   local sound = SKIN:GetVariable("WinUxDir") .. "\\generated\\sounds\\blip.wav"
   SKIN:Bang('[Play "' .. sound .. '"]')
   state, timer = "hop", 6

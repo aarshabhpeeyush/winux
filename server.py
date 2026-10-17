@@ -14,8 +14,10 @@ import secrets
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import webbrowser
+import winsound
 import winreg
 from ctypes import wintypes
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -833,6 +835,7 @@ def apply_widget_set(names):
 import assets  # noqa: E402  (WinUx's own pixel art + chiptunes)
 import app_icons  # noqa: E402  (pixel-art app logos)
 import folder_colors  # noqa: E402  (colored folders + the right-click menu)
+import achievements  # noqa: E402  (little goals + secret ones)
 
 GENERATED = ROOT / "generated"
 SPI_SETCURSORS = 0x0057
@@ -884,6 +887,7 @@ def save_my_cursors(doc, wear):
     assets.build_custom_cursors(cset)
     if wear or cursors_state() == "custom":
         set_cursors("custom")
+        ACH.event("cursors")
     return cset
 
 
@@ -1367,6 +1371,8 @@ def match_lockscreen_later():
 def set_soul(color):
     """Every heart in WinUx turns your soul's color: the soul cursor, widgets, the panel."""
     set_pref("soul", color)
+    ACH.event("soul")
+    ACH.event("souls", color)
     assets.build_previews(get_state_accent(), color)
     if cursors_state() == "soul":
         set_cursors("soul")
@@ -1377,6 +1383,54 @@ def set_soul(color):
 
 # ---------------------------------------------------------------- tray icon + Ctrl+Alt+T
 TRAY = None
+
+
+def _achievement_sound():
+    f = GENERATED / "sounds" / "save.wav"
+    if f.is_file():
+        winsound.PlaySound(str(f), winsound.SND_FILENAME | winsound.SND_ASYNC)
+
+
+ACH = achievements.Achievements(BACKUPS / "achievements.json",
+                                notify=lambda title, text: TRAY and TRAY.notify(title, text),
+                                sound=_achievement_sound)
+EVENTS_FILE = BACKUPS / "events.txt"     # the Rainmeter widgets write events here
+
+
+def read_widget_events():
+    """Pick up what the widgets reported (dog pets, focus timer wins)."""
+    if not EVENTS_FILE.is_file():
+        return
+    reading = EVENTS_FILE.with_suffix(".reading")
+    try:
+        EVENTS_FILE.replace(reading)
+        lines = reading.read_text(encoding="utf-8", errors="ignore").split()
+        reading.unlink()
+    except OSError:
+        return
+    for name in lines[:500]:
+        if name in achievements.PUBLIC_EVENTS:
+            ACH.event(name, gap=0)
+
+
+def achievement_clock():
+    """Once a minute: count PC time, days used, late nights, and widget events."""
+    while True:
+        try:
+            ACH.event("minute", gap=0)
+            ACH.event("days", time.strftime("%Y-%m-%d"))
+            if time.localtime().tm_hour < 4:
+                ACH.event("night")
+            read_widget_events()
+        except Exception:
+            pass
+        time.sleep(60)
+
+
+def public_event(name):
+    ACH.event(name)
+    if name == "sans-start" and time.localtime().tm_hour < 4:
+        ACH.event("sans-late")
 
 
 def tray_themes():
@@ -1392,7 +1446,8 @@ def start_tray():
                      apply=lambda name, settings: apply_settings({**settings, "_theme": name}),
                      current=lambda: prefs().get("lastTheme"),
                      open_panel=lambda: webbrowser.open(f"http://127.0.0.1:{PORT}/"),
-                     quit=lambda: __import__("threading").Timer(0.5, os._exit, (0,)).start())
+                     quit=lambda: __import__("threading").Timer(0.5, os._exit, (0,)).start(),
+                     on_hotkey=lambda: ACH.event("hotkey"))
     TRAY.start()
 
 
@@ -1595,6 +1650,9 @@ def apply_settings(s):
     """Apply any subset of the state keys. Unknown keys are ignored."""
     if s.get("_theme"):
         set_pref("lastTheme", str(s["_theme"])[:60])
+        ACH.event("themes", str(s["_theme"])[:60])
+        if s["_theme"] == "Pirate Gaster":
+            ACH.event("gaster")
     if "appsDark" in s:
         rset(PERSONALIZE, "AppsUseLightTheme", 0 if s["appsDark"] else 1)
     if "systemDark" in s:
@@ -2072,6 +2130,14 @@ class Handler(BaseHTTPRequestHandler):
         elif url.path in ("/style.css", "/app.js"):
             self.send_file(UI / url.path[1:],
                            "text/css" if url.path.endswith(".css") else "text/javascript")
+        elif url.path == "/event":
+            # walls, widgets and the folder menu report things here (no password, only harmless events)
+            name = q.get("e", [""])[0]
+            if name in achievements.PUBLIC_EVENTS:
+                public_event(name)
+            self.send_response(204)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
         elif url.path == "/wall":
             p = wallpaper_path(q.get("id", [""])[0])
             if not p:
@@ -2152,6 +2218,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(export_theme(q.get("id", [""])[0]))
             except (OSError, ValueError):
                 self.send_json({"error": "Couldn't find that theme."}, 404)
+        elif url.path == "/api/achievements":
+            read_widget_events()
+            self.send_json(ACH.state())
         elif url.path == "/api/cursor-set":
             self.send_json({"set": my_cursors(), "starter": assets.cursor_starter(prefs()["soul"])})
         elif url.path == "/api/live":
@@ -2187,6 +2256,7 @@ class Handler(BaseHTTPRequestHandler):
                         (BACKUPS / f"custom-jingle{old}").unlink(missing_ok=True)
                     (BACKUPS / f"custom-jingle{ext}").write_bytes(data)
                     set_pref("jingle", "custom")
+                    ACH.event("jingle-custom")
                     return self.send_json(prefs())
                 if kind == "live":
                     if ext not in VIDEO_EXTS:
@@ -2244,9 +2314,19 @@ class Handler(BaseHTTPRequestHandler):
                     if value not in assets.JINGLES and not (value == "custom" and custom_jingle()):
                         return self.send_json({"error": "Unknown jingle."}, 400)
                     set_pref(key, value)
+                    if value == "custom":
+                        ACH.event("jingle-custom")
                 else:
                     return self.send_json({"error": "Unknown setting."}, 400)
                 self.send_json(prefs())
+            elif url.path == "/api/event":
+                name = str(body.get("e", ""))
+                if name in achievements.PANEL_EVENTS:
+                    public_event(name)
+                self.send_json(ACH.state())
+            elif url.path == "/api/achievements-seen":
+                ACH.seen()
+                self.send_json({"ok": True})
             elif url.path == "/api/folder-menu":
                 if body.get("on"):
                     folder_colors.install_menu()
@@ -2271,6 +2351,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send_json({"error": "Unknown widget."}, 400)
                 set_widget(config, bool(body.get("on")), body.get("file"))
                 time.sleep(0.5)  # let Rainmeter save its settings
+                ACH.event("widgets", sum(c.startswith("WinUx\\") for c in active_configs()), gap=0)
                 self.send_json(list_widgets())
             elif url.path == "/api/lively-keyboard":
                 set_lively_keyboard(bool(body.get("on")))
@@ -2329,6 +2410,7 @@ def main():
             start_tray()
         except Exception:
             pass                            # no tray is fine; the panel still works
+    threading.Thread(target=achievement_clock, daemon=True, name="winux-achievements").start()
     print(f"WinUx is running at http://127.0.0.1:{PORT}/  (close this window to stop)")
     server.serve_forever()
 

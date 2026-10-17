@@ -518,3 +518,22 @@ input[type=text]:focus, select:focus { outline: none; border-color: var(--select
 .maker-preview canvas { display: block; image-rendering: pixelated; }
 
 .folder-strip { display: block; image-rendering: pixelated; max-width: 100%; margin-bottom: 10px; }
+
+/* ---------- achievements ---------- */
+.ach-top { display: flex; align-items: center; gap: 14px; margin: 6px 0 10px; }
+.ach-bar { flex: 1; height: 22px; border: 3px solid var(--line); background: #400; }
+.ach-bar div { height: 100%; width: 0; background: var(--select); transition: width .4s; }
+.ach-stats { color: var(--muted); font-size: 19px; line-height: 1.4; white-space: pre-wrap; }
+.achs { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 10px; }
+.ach { display: flex; gap: 12px; align-items: center; border: 3px solid var(--faint); padding: 8px 10px; opacity: .55; }
+.ach.got { opacity: 1; border-color: var(--line); }
+.ach.new { border-color: var(--select); outline: 3px solid var(--select); outline-offset: 2px; }
+.ach-icon {
+  width: 44px; height: 44px; flex: none; display: grid; place-items: center; font-size: 28px;
+  border: 3px solid var(--faint); color: var(--muted);
+}
+.ach.got .ach-icon { color: var(--select); border-color: var(--select); }
+.ach-name { color: var(--line); }
+.ach.got .ach-name::before { content: "♥ "; color: var(--soul); }
+.ach-desc { color: var(--muted); font-size: 18px; line-height: 1.2; }
+.logo { cursor: pointer; }

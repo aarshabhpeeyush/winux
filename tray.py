@@ -69,9 +69,10 @@ class Tray:
     """start() it once. `themes()` -> [(name, settings)], `apply(name, settings)`,
     `current()` -> name of the theme in use (or None), `open_panel()`, `quit()`."""
 
-    def __init__(self, icon_path, themes, apply, current, open_panel, quit, hotkey=True):
+    def __init__(self, icon_path, themes, apply, current, open_panel, quit, hotkey=True, on_hotkey=None):
         self.icon_path, self.themes, self.apply_cb = str(icon_path), themes, apply
         self.current, self.open_panel, self.quit_cb, self.hotkey = current, open_panel, quit, hotkey
+        self.on_hotkey = on_hotkey
         self.hwnd = None
         self.hotkey_ok = False
         self._proc = WNDPROC(self._wndproc)   # keep a reference so it isn't garbage collected
@@ -129,6 +130,8 @@ class Tray:
             return 0
         if msg == WM_HOTKEY and wparam == HOTKEY_ID:
             self._next()
+            if self.on_hotkey:
+                threading.Thread(target=self.on_hotkey, daemon=True).start()
             return 0
         if msg == self.taskbar_created:          # Explorer restarted: put the icon back
             self._icon(NIM_ADD)

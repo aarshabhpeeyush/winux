@@ -14,6 +14,14 @@ local function choices()
   return list
 end
 
+-- tell WinUx (for achievements): WinUx reads backups\\events.txt once a minute
+local function report(name)
+  local dir = SKIN:GetVariable("WinUxDir", "")
+  if dir == "" then return end
+  local f = io.open(dir .. "\\backups\\events.txt", "a")
+  if f then f:write(name .. "\n"); f:close() end
+end
+
 local function sound(name)
   local file = SKIN:GetVariable("WinUxDir") .. "\\generated\\sounds\\" .. name .. ".wav"
   SKIN:Bang('[Play "' .. file .. '"]')
@@ -95,6 +103,7 @@ function Update()
         SKIN:Bang("!SetVariable", "BarBack", "60,60,60")
         say("* YOU WON! Got " .. mins .. " EXP. Take a " .. math.floor(total / 60) .. " minute break.")
         sound("save")
+        report("timer-win")
       else
         ready()
         say("* You feel rested. The next TASK appears! Press FIGHT.")
