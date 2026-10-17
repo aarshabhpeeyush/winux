@@ -771,7 +771,7 @@ function themeCard(t, deletable) {
     b.querySelector(".theme-name").textContent = t.name;
     b.querySelector(".theme-blurb").textContent = t.blurb || "";
   }
-  b.addEventListener("click", () => apply(s, t.wingdings ? ["Switched to ", wd(t.name), "."] : `Switched to "${t.name}".`));
+  b.addEventListener("click", () => apply({ ...s, _theme: t.name }, t.wingdings ? ["Switched to ", wd(t.name), "."] : `Switched to "${t.name}".`));
 
   if (deletable) {
     const del = document.createElement("span");

@@ -1186,7 +1186,7 @@ def set_app_icons(pack):
 
 # ---------------------------------------------------------------- WinUx's own preferences
 PREFS = BACKUPS / "prefs.json"
-PREF_DEFAULTS = {"startupJingle": True}
+PREF_DEFAULTS = {"startupJingle": True, "tray": True, "lastTheme": None}
 
 
 def prefs():
@@ -1214,6 +1214,37 @@ def play_startup_jingle():
         except RuntimeError:
             pass
     threading.Thread(target=go, daemon=True).start()
+
+
+# ---------------------------------------------------------------- tray icon + Ctrl+Alt+T
+TRAY = None
+
+
+def tray_themes():
+    t = list_themes()
+    return [(x["name"], x.get("settings") or {}) for x in t["presets"] + t["mine"]]
+
+
+def start_tray():
+    global TRAY
+    import tray
+    icon = app_icons.build_app_icons()["undertale"]          # the red soul
+    TRAY = tray.Tray(icon, tray_themes,
+                     apply=lambda name, settings: apply_settings({**settings, "_theme": name}),
+                     current=lambda: prefs().get("lastTheme"),
+                     open_panel=lambda: webbrowser.open(f"http://127.0.0.1:{PORT}/"),
+                     quit=lambda: __import__("threading").Timer(0.5, os._exit, (0,)).start())
+    TRAY.start()
+
+
+def set_tray(on):
+    global TRAY
+    set_pref("tray", bool(on))
+    if TRAY:
+        TRAY.stop()
+        TRAY = None
+    if on:
+        start_tray()
 
 
 # ---------------------------------------------------------------- start with Windows
@@ -1256,6 +1287,11 @@ def startup_state():
                     "on": bool(fam) and rget(TTB_TASK.format(fam=fam), "State", 0) in (2, 4)}
     items["windhawk"] = {"name": "Windhawk", "what": "Mods. Always starts (it's a Windows service).",
                          "installed": WINDHAWK.is_file(), "on": WINDHAWK.is_file(), "fixed": True}
+    hot = TRAY.hotkey_ok if TRAY else None
+    items["tray"] = {"name": "Tray icon + Ctrl+Alt+T",
+                     "what": "A soul by the clock to switch themes; Ctrl+Alt+T = next theme."
+                             + (" (Another app already uses Ctrl+Alt+T.)" if TRAY and hot is False else ""),
+                     "installed": True, "on": prefs()["tray"], "hotkey": hot}
     items["jingle"] = {"name": "Startup jingle", "what": "A little chiptune when WinUx starts with your PC.",
                        "installed": True, "on": prefs()["startupJingle"]}
     return items
@@ -1278,6 +1314,8 @@ def set_startup(key, on):
         rset(TTB_TASK.format(fam=ttb_family()), "State", 2 if on else 1)
     elif key == "jingle":
         set_pref("startupJingle", bool(on))
+    elif key == "tray":
+        set_tray(on)
     else:
         raise RuntimeError("That one can't be switched here.")
 
@@ -1387,6 +1425,8 @@ def get_state():
 
 def apply_settings(s):
     """Apply any subset of the state keys. Unknown keys are ignored."""
+    if s.get("_theme"):
+        set_pref("lastTheme", str(s["_theme"])[:60])
     if "appsDark" in s:
         rset(PERSONALIZE, "AppsUseLightTheme", 0 if s["appsDark"] else 1)
     if "systemDark" in s:
@@ -2043,6 +2083,11 @@ def main():
         webbrowser.open(f"http://127.0.0.1:{PORT}/")
     elif prefs()["startupJingle"]:
         play_startup_jingle()               # started with Windows: a little "boot" tune
+    if prefs()["tray"]:
+        try:
+            start_tray()
+        except Exception:
+            pass                            # no tray is fine; the panel still works
     print(f"WinUx is running at http://127.0.0.1:{PORT}/  (close this window to stop)")
     server.serve_forever()
 

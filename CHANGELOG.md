@@ -11,6 +11,8 @@
   wallpaper picture inside). Friends open it with IMPORT THEME.
 - **Startup jingle**: a short original chiptune plays when WinUx starts with your PC.
   Switch it off in BACKUP; hear it in ICONS+SOUNDS.
+- **Tray icon + hotkey**: a red soul by the clock. Click it to open WinUx or switch to any
+  theme; **Ctrl+Alt+T** flips to the next theme from anywhere.
 
 ## 1.0.2 beta (2026-10-15)
 
