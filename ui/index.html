@@ -275,6 +275,13 @@
           <p class="hint small">* SHARE gives you a .winuxcursor file. A friend clicks IMPORT to get your cursors.</p>
         </div>
 
+        <div class="label">* Folder colors <small class="dim">(right-click any folder in File Explorer)</small></div>
+        <img class="folder-strip" src="/gen/previews/folders.png" alt="">
+        <label class="toggle"><input type="checkbox" id="folderMenu"><span>Add <b>WinUx folder color</b> + <b>WinUx folder emblem</b> to the right-click menu</span></label>
+        <p class="hint small">* On Windows 11, right-click a folder and pick <b>Show more options</b> first.
+          <span id="coloredFolders"></span></p>
+        <div class="row"><button class="btn small hidden" id="resetFolders">PUT ALL FOLDERS BACK</button></div>
+
         <div class="label">* Desktop icons <small class="dim">(This PC, Recycle Bin, your folder, Network)</small></div>
         <div class="looks" data-key="icons">
           <button class="look" data-val="default"><div class="look-pic plain">WINDOWS</div><div class="look-name">Windows</div></button>

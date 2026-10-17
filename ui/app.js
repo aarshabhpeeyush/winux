@@ -192,6 +192,10 @@ function render() {
   renderVersion();
   renderSouls();
   $("lockMatch").checked = !!state.lockScreen;
+  $("folderMenu").checked = !!state.folderMenu;
+  $("coloredFolders").textContent = state.coloredFolders
+    ? `* You've colored ${state.coloredFolders} folder${state.coloredFolders === 1 ? "" : "s"}.` : "";
+  $("resetFolders").classList.toggle("hidden", !state.coloredFolders);
   document.documentElement.style.setProperty("--accent", state.accent);
   $("nowAccent").style.background = state.accent;
   $("nowAccentText").textContent = state.accent;
@@ -461,6 +465,25 @@ function renderVersion() {
 }
 
 // lock screen follows the wallpaper
+$("folderMenu").addEventListener("change", async (e) => {
+  try {
+    state = { ...state, ...(await api("/api/folder-menu", { method: "POST", body: { on: e.target.checked } })) };
+    render();
+    say(state.folderMenu
+      ? (state.win11 ? "Right-click a folder > Show more options > WinUx folder color!" : "Right-click a folder > WinUx folder color!")
+      : "The WinUx folder menu is gone. Colored folders stay colored.");
+  } catch (err) { say(err.message, true); }
+});
+$("resetFolders").addEventListener("click", async () => {
+  if (!confirm("Turn every folder WinUx colored back to normal?")) return;
+  try {
+    const r = await api("/api/folders-reset", { method: "POST" });
+    state = { ...state, ...r };
+    render();
+    say(`${r.reset} folder${r.reset === 1 ? " is" : "s are"} back to normal.`);
+  } catch (err) { say(err.message, true); }
+});
+
 $("lockMatch").addEventListener("change", async (e) => {
   try {
     await api("/api/pref", { method: "POST", body: { key: "lockScreen", value: e.target.checked } });

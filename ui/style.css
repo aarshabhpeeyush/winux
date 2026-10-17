@@ -516,3 +516,5 @@ input[type=text]:focus, select:focus { outline: none; border-color: var(--select
 .maker-color input { position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0; }
 .maker-preview { background: #3a6ea5; border: 3px solid var(--faint); align-self: flex-start; }
 .maker-preview canvas { display: block; image-rendering: pixelated; }
+
+.folder-strip { display: block; image-rendering: pixelated; max-width: 100%; margin-bottom: 10px; }

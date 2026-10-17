@@ -14,6 +14,17 @@ if ($a -notmatch "^[Yy]") { Say "  * Nothing was changed."; exit 0 }
 Get-NetTCPConnection -LocalPort 7777 -State Listen -ErrorAction SilentlyContinue |
     ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
 
+# colored folders back to normal + remove the right-click menu
+$pyFile = Join-Path $Here ".pythonw"
+if (Test-Path -LiteralPath $pyFile) {
+    $pyw = (Get-Content -LiteralPath $pyFile -TotalCount 1).Trim()
+    if ($pyw -and (Test-Path -LiteralPath $pyw)) {
+        Start-Process -FilePath $pyw -ArgumentList "`"$(Join-Path $Here 'folder_colors.py')`" --uninstall" -Wait
+    }
+}
+Remove-Item "HKCU:\Software\Classes\Directory\shell\WinUxFolderColor" -Recurse -ErrorAction SilentlyContinue
+Remove-Item "HKCU:\Software\Classes\Directory\shell\WinUxFolderEmblem" -Recurse -ErrorAction SilentlyContinue
+
 # no more starting with Windows
 Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "WinUx" -ErrorAction SilentlyContinue
 

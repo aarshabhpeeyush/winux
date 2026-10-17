@@ -832,6 +832,7 @@ def apply_widget_set(names):
 
 import assets  # noqa: E402  (WinUx's own pixel art + chiptunes)
 import app_icons  # noqa: E402  (pixel-art app logos)
+import folder_colors  # noqa: E402  (colored folders + the right-click menu)
 
 GENERATED = ROOT / "generated"
 SPI_SETCURSORS = 0x0057
@@ -1578,6 +1579,8 @@ def get_state():
         "windhawk": WINDHAWK.is_file(),
         **ttb_state(),
         **taskbar_state(),
+        "folderMenu": folder_colors.menu_installed(),
+        "coloredFolders": folder_colors.colored_count(),
         "cursors": cursors_state(),
         "myCursors": MY_CURSORS.is_file(),
         "sounds": sounds_state(),
@@ -1741,6 +1744,8 @@ def restore_original():
     refresh_icons()
     if app_icons_state() != "default":
         set_app_icons("default")
+    folder_colors.remove_menu()
+    folder_colors.reset_all()
     if prefs()["lockScreen"] or LOCK_ORIGINAL.is_file():
         # your old lock screen picture, or Windows' standard one if it couldn't be saved
         default = Path(os.environ.get("WINDIR", r"C:\Windows")) / "Web" / "Screen" / "img100.jpg"
@@ -2242,6 +2247,15 @@ class Handler(BaseHTTPRequestHandler):
                 else:
                     return self.send_json({"error": "Unknown setting."}, 400)
                 self.send_json(prefs())
+            elif url.path == "/api/folder-menu":
+                if body.get("on"):
+                    folder_colors.install_menu()
+                else:
+                    folder_colors.remove_menu()
+                self.send_json(get_state())
+            elif url.path == "/api/folders-reset":
+                n = folder_colors.reset_all()
+                self.send_json({**get_state(), "reset": n})
             elif url.path == "/api/cursor-set":
                 try:
                     save_my_cursors(body.get("set"), bool(body.get("wear")))
@@ -2295,6 +2309,9 @@ def main():
     app_icons.preview_png(assets.OUT / "previews" / "app-icons.png", scale=2, gap=6)
     if my_cursors():
         assets.build_custom_cursors(my_cursors())
+    folder_colors.preview_png(assets.OUT / "previews" / "folders.png")
+    if folder_colors.menu_installed():
+        folder_colors.install_menu()     # keeps the menu pointing at this WinUx folder
     assets.build_sounds()
     try:
         server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
