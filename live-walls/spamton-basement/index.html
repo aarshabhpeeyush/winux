@@ -1,0 +1,200 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Spamton's Basement</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #07060c; overflow: hidden; }
+  canvas { width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// Spamton's basement: a dark alley with a dumpster, old screens flickering
+// with [[DEALS]], wires hanging, neon puddles, and Spamton popping out to sell.
+const PIXEL = 4;
+const opts = { speed: 1, spamton: true };
+
+const c = document.getElementById("c");
+const ctx = c.getContext("2d");
+let W, H, S, drips = [], screens = [];
+
+const R = (x, y, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+function ellipse(cx, cy, rx, ry, col) {
+  ctx.fillStyle = col;
+  for (let y = -ry; y <= ry; y++) {
+    const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - (y * y) / (ry * ry))));
+    ctx.fillRect(Math.round(cx - half), Math.round(cy + y), half * 2 + 1, 1);
+  }
+}
+function poly(pts, col) {
+  ctx.fillStyle = col;
+  ctx.beginPath();
+  pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+  ctx.closePath();
+  ctx.fill();
+}
+const rnd = (a, b) => a + Math.random() * (b - a);
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+
+const FONT = {
+  A: "010101111101101", B: "110101110101110", C: "011100100100011", D: "110101101101110", E: "111100110100111",
+  F: "111100110100100", G: "011100101101011", H: "101101111101101", I: "111010010010111", K: "101101110101101",
+  L: "100100100100111", N: "110101101101101", O: "010101101101010", P: "110101110100100", R: "110101110101101",
+  S: "011100010001110", T: "111010010010010", U: "101101101101111", W: "101101111111101", Y: "101101010010010",
+  "!": "010010010000010", "[": "110100100100110", "]": "011001001001011", "$": "011110010011110", " ": "000000000000000",
+  "1": "010110010010111", "9": "111101111001111", "%": "101001010100101", "0": "111101101101111",
+};
+function text(str, x, y, s, col) {
+  ctx.fillStyle = col;
+  for (const ch of str) {
+    const g = FONT[ch] || FONT[" "];
+    for (let i = 0; i < 15; i++) if (g[i] === "1") ctx.fillRect(Math.round(x + (i % 3) * s), Math.round(y + Math.floor(i / 3) * s), s, s);
+    x += 4 * s;
+  }
+}
+const textWidth = (str, s) => str.length * 4 * s - s;
+const ADS = ["[[DEALS]]", "[[BIG SHOT]]", "KROMER", "99% OFF", "[[HOT]]", "BUY NOW", "[[FREE]]"];
+
+function resize() {
+  W = c.width = Math.ceil(innerWidth / PIXEL);
+  H = c.height = Math.ceil(innerHeight / PIXEL);
+  S = Math.max(1, Math.round(H / 270));
+  drips = Array.from({ length: 40 }, () => newDrip(true));
+  screens = [[0.18, 0.2], [0.33, 0.12], [0.75, 0.16], [0.86, 0.3]].map(([fx, fy]) => ({ x: W * fx, y: H * fy, ad: pick(ADS), t: rnd(0, 3) }));
+}
+function newDrip(anywhere) { return { x: rnd(0, W), y: anywhere ? rnd(0, H) : -2, v: rnd(70, 120) }; }
+addEventListener("resize", resize);
+resize();
+
+// Spamton peeking out, drawn from the user's reference: a white face in profile
+// with that long pointy nose, round pink + yellow glasses, red cheeks, a slicked
+// black hair swoop and his striped puppet mouth.
+function spamton(cx, y, s, t) {
+  const K = "#000", Wh = "#f6f2ea";
+  // his black suit shoulder behind his head, on the right
+  const sh = Math.sin(t * 5) * s;
+  poly([[cx + 6 * s, y + 14 * s], [cx + 16 * s, y + 10 * s + sh], [cx + 20 * s, y + 14 * s + sh],
+        [cx + 15 * s, y + 18 * s], [cx + 18 * s, y + 24 * s], [cx + 6 * s, y + 24 * s]], K);
+  // his puppet mouth: a white jaw with black stripes, under the nose
+  const jaw = Math.round(Math.abs(Math.sin(t * 6)) * s);               // it chatters
+  R(cx - 3 * s, y + 13 * s, 12 * s, 11 * s + jaw, K);
+  R(cx - 2 * s, y + 14 * s, 10 * s, 9 * s + jaw, Wh);
+  for (let k = 0; k < 4; k++) R(cx - 2 * s, y + 15 * s + k * 2 * s + (k > 1 ? jaw : 0), 10 * s, s, K);
+  // the head
+  ellipse(cx + 2 * s, y + 8 * s, 10 * s, 11 * s, K);
+  ellipse(cx + 2 * s, y + 8 * s, 9 * s, 10 * s, Wh);
+  // the long nose, pointing down and to the left
+  poly([[cx - 2 * s, y + 9 * s], [cx + 3 * s, y + 11 * s], [cx - 9 * s, y + 24 * s], [cx - 11 * s, y + 23 * s]], K);
+  poly([[cx - 1 * s, y + 10 * s], [cx + 2 * s, y + 11 * s], [cx - 9 * s, y + 22.5 * s], [cx - 10 * s, y + 22 * s]], Wh);
+  // glasses: pink and yellow circles joined by a bridge
+  ellipse(cx - 3 * s, y + 5 * s, 3.5 * s, 3 * s, K);
+  ellipse(cx - 3 * s, y + 5 * s, 2.5 * s, 2 * s, "#ff9ad0");
+  ellipse(cx + 6 * s, y + 5 * s, 3.5 * s, 3 * s, K);
+  ellipse(cx + 6 * s, y + 5 * s, 2.5 * s, 2 * s, "#ffe24a");
+  R(cx, y + 4 * s, 3 * s, s, K);
+  // red cheeks
+  ellipse(cx - 5 * s, y + 10 * s, 1.5 * s, 1.5 * s, "#ff3030");
+  ellipse(cx + 9 * s, y + 10 * s, 1.5 * s, 1.5 * s, "#ff3030");
+  // slicked hair: a black swoop over the top that sweeps right and flicks up
+  poly([[cx - 9 * s, y + 2 * s], [cx - 7 * s, y - 3 * s], [cx, y - 6 * s], [cx + 9 * s, y - 6 * s],
+        [cx + 15 * s, y - 8 * s], [cx + 20 * s, y - 12 * s], [cx + 19 * s, y - 6 * s], [cx + 14 * s, y - 1 * s],
+        [cx + 8 * s, y], [cx, y], [cx - 5 * s, y + 3 * s]], K);
+}
+
+let last = performance.now(), t = 0, peek = 0, peekT = 4, said = "", sayT = 0;
+function frame(now) {
+  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)) * opts.speed;
+  last = Math.max(last, now);
+  t += dt;
+
+  // dark walls
+  R(0, 0, W, H, "#0c0a14");
+  for (let y = 0; y < H * 0.75; y += 7 * S) {
+    for (let x = ((y / (7 * S)) % 2) * 7 * S; x < W; x += 14 * S) R(x, y, 13 * S, 6 * S, "#14101e");
+  }
+  const groundY = Math.round(H * 0.75);
+
+  // dangling wires
+  ctx.strokeStyle = "#1c2a1c";
+  ctx.lineWidth = S;
+  for (let k = 0; k < 6; k++) {
+    const x1 = W * (k / 6), x2 = x1 + W * 0.2, sag = 20 * S + k * 4 * S + Math.sin(t + k) * 2 * S;
+    ctx.beginPath(); ctx.moveTo(x1, 0); ctx.quadraticCurveTo((x1 + x2) / 2, sag * 2, x2, 0); ctx.stroke();
+  }
+
+  // old screens with flickering ads
+  for (const sc of screens) {
+    const w = 46 * S, h = 30 * S;
+    R(sc.x - w / 2 - 3 * S, sc.y - 3 * S, w + 6 * S, h + 6 * S, "#2a2630");
+    sc.t -= dt;
+    if (sc.t <= 0) { sc.t = rnd(1.5, 4); sc.ad = pick(ADS); }
+    const flicker = Math.random() < 0.06;
+    R(sc.x - w / 2, sc.y, w, h, flicker ? "#ffffff" : "#060a1a");
+    if (!flicker) {
+      const col = Math.floor(t * 3) % 2 ? "#ff4fa3" : "#ffe24a";
+      const s2 = textWidth(sc.ad, S) > w - 4 * S ? S : S;
+      text(sc.ad, sc.x - textWidth(sc.ad, s2) / 2, sc.y + h / 2 - 3 * s2, s2, col);
+      ctx.globalAlpha = 0.15;
+      for (let y = sc.y; y < sc.y + h; y += 2) R(sc.x - w / 2, y, w, 1, "#000");
+      ctx.globalAlpha = 1;
+    }
+    // the glow spilling out
+    ctx.globalAlpha = 0.08;
+    ellipse(sc.x, sc.y + h / 2, w * 0.9, h, "#ff4fa3");
+    ctx.globalAlpha = 1;
+  }
+
+  // wet ground with neon puddles
+  R(0, groundY, W, H - groundY, "#0e0c16");
+  for (const [fx, col] of [[0.2, "#ff4fa3"], [0.55, "#ffe24a"], [0.82, "#ff4fa3"]]) {
+    const shim = 0.2 + 0.1 * Math.sin(t * 3 + fx * 10);
+    ctx.globalAlpha = shim;
+    ellipse(W * fx, groundY + 14 * S, 30 * S, 4 * S, col);
+    ctx.globalAlpha = 1;
+  }
+
+  // the dumpster (and Spamton inside)
+  const dx = W * 0.5, dw = 80 * S, dh = 36 * S, dtop = groundY - dh + 6 * S;
+  peekT -= dt;
+  if (opts.spamton && peekT <= 0 && peek === 0) { peek = 0.001; peekT = rnd(10, 18); said = pick(["[[HOT SINGLES]]!", "KROMER?", "NOW'S YOUR CHANCE!", "[[DEALS]]!!"]); }
+  if (peek > 0) {
+    peek += dt;
+    const up = Math.min(1, peek * 2, Math.max(0, (5 - peek) * 2));
+    if (peek > 5) peek = 0;
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, dtop); ctx.clip();
+    spamton(dx - 6 * S, dtop + 30 * S - up * 62 * S, Math.max(1, Math.round(S * 1.3)), t);
+    ctx.restore();
+    if (up > 0.9) {
+      const bw = textWidth(said, S) + 6 * S;
+      R(dx + 22 * S, dtop - 44 * S, bw, 10 * S, "#ffffff");
+      text(said, dx + 25 * S, dtop - 41 * S, S, "#000");
+    }
+  }
+  R(dx - dw / 2, dtop, dw, dh, "#1e4a2a");                          // the bin
+  R(dx - dw / 2, dtop, dw, 3 * S, "#2e6a3a");
+  for (let x = dx - dw / 2 + 8 * S; x < dx + dw / 2 - 4 * S; x += 14 * S) R(x, dtop + 6 * S, 2 * S, dh - 10 * S, "#163a20");
+  poly([[dx - dw / 2 - 2 * S, dtop], [dx + 2 * S, dtop - 4 * S - (peek > 0 ? 8 * S : 0)], [dx + 2 * S, dtop]], "#2e6a3a");   // the lid tips up
+  R(dx - dw / 2 + 4 * S, groundY + 4 * S, 6 * S, 3 * S, "#0a0a0a");
+  R(dx + dw / 2 - 10 * S, groundY + 4 * S, 6 * S, 3 * S, "#0a0a0a");
+
+  // rain drips
+  for (const d of drips) {
+    d.y += d.v * dt * S;
+    if (d.y > H) Object.assign(d, newDrip(false));
+    ctx.globalAlpha = 0.35;
+    R(d.x, d.y, 1, 3 * S, "#8a9ab8");
+  }
+  ctx.globalAlpha = 1;
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+function livelyPropertyListener(name, val) {
+  if (name in opts) opts[name] = val;
+}
+</script>
+</body>
+</html>

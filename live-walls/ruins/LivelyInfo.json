@@ -1,0 +1,19 @@
+{
+  "AppVersion": "2.2.1.0",
+  "Title": "The Ruins",
+  "Thumbnail": null,
+  "Preview": null,
+  "Desc": "Purple brick, falling red leaves, the big bare tree and Toriel's house.",
+  "Author": "WinUx",
+  "License": "",
+  "Contact": "",
+  "Type": 1,
+  "FileName": "index.html",
+  "Arguments": null,
+  "IsAbsolutePath": false,
+  "Id": null,
+  "Tags": [
+    "winux"
+  ],
+  "Version": 0
+}

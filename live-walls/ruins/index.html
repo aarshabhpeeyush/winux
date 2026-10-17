@@ -1,0 +1,160 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>The Ruins</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #1a0a24; overflow: hidden; }
+  canvas { width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// The Ruins: purple brick walls, a big bare black tree, piles of red leaves
+// that keep falling, and Toriel's house behind with a warm window.
+const PIXEL = 4;
+const opts = { speed: 1, leaves: 1 };
+
+const c = document.getElementById("c");
+const ctx = c.getContext("2d");
+let W, H, S, leaves = [], branches = [];
+
+const R = (x, y, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+function ellipse(cx, cy, rx, ry, col) {
+  ctx.fillStyle = col;
+  for (let y = -ry; y <= ry; y++) {
+    const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - (y * y) / (ry * ry))));
+    ctx.fillRect(Math.round(cx - half), Math.round(cy + y), half * 2 + 1, 1);
+  }
+}
+function poly(pts, col) {
+  ctx.fillStyle = col;
+  ctx.beginPath();
+  pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+  ctx.closePath();
+  ctx.fill();
+}
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+function resize() {
+  W = c.width = Math.ceil(innerWidth / PIXEL);
+  H = c.height = Math.ceil(innerHeight / PIXEL);
+  S = Math.max(1, Math.round(H / 270));
+  leaves = Array.from({ length: 140 }, () => newLeaf(true));
+  // the bare tree: a trunk and a fan of crooked branches (fixed shape)
+  branches = [];
+  const grow = (x, y, ang, len, depth) => {
+    if (depth === 0 || len < 3 * S) return;
+    const x2 = x + Math.cos(ang) * len, y2 = y + Math.sin(ang) * len;
+    branches.push([x, y, x2, y2, Math.max(1, depth * 1.6 * S)]);
+    grow(x2, y2, ang - rnd(0.25, 0.55), len * 0.72, depth - 1);
+    grow(x2, y2, ang + rnd(0.25, 0.55), len * 0.68, depth - 1);
+  };
+  grow(W * 0.62, H * 0.36, -Math.PI / 2, 34 * S, 7);
+}
+function newLeaf(anywhere) {
+  return { x: rnd(0, W), y: anywhere ? rnd(0, H) : -3, vy: rnd(6, 13), p: rnd(0, 6), sway: rnd(4, 10) };
+}
+addEventListener("resize", resize);
+resize();
+
+function bricks(x0, y0, w, h, base, line) {
+  R(x0, y0, w, h, base);
+  for (let y = y0; y < y0 + h; y += 6 * S) {
+    R(x0, y, w, 1, line);
+    const off = ((y - y0) / (6 * S)) % 2 ? 6 * S : 0;
+    for (let x = x0 + off; x < x0 + w; x += 12 * S) R(x, y, 1, 6 * S, line);
+  }
+}
+
+let last = performance.now(), t = 0;
+function frame(now) {
+  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)) * opts.speed;
+  last = Math.max(last, now);
+  t += dt;
+
+  const floorY = Math.round(H * 0.72);
+  // purple brick back wall
+  bricks(0, 0, W, floorY, "#5a2a78", "#43205a");
+  // a darker band and pillars
+  R(0, floorY - 22 * S, W, 22 * S, "#4a2264");
+  for (let x = 10 * S; x < W; x += 70 * S) {
+    R(x, 0, 12 * S, floorY, "#6a3290");
+    R(x + 2 * S, 0, 2 * S, floorY, "#7d42a6");
+    R(x - S, floorY - 6 * S, 14 * S, 6 * S, "#43205a");
+  }
+
+  // Toriel's house, with a warm window and smoke from the chimney
+  const hx = W * 0.12, hw = 80 * S, hh = 46 * S, htop = floorY - hh;
+  R(hx, htop, hw, hh, "#3a1a50");
+  poly([[hx - 8 * S, htop + 1], [hx + hw + 8 * S, htop + 1], [hx + hw / 2, htop - 26 * S]], "#2a1038");
+  R(hx + hw * 0.72, htop - 22 * S, 8 * S, 14 * S, "#2a1038");
+  for (let k = 0; k < 4; k++) {
+    const st = (t * 0.4 + k * 0.25) % 1;
+    ctx.globalAlpha = 0.35 * (1 - st);
+    ellipse(hx + hw * 0.72 + 4 * S + st * 8 * S, htop - 24 * S - st * 30 * S, (2 + st * 5) * S, (2 + st * 5) * S, "#d8c8e8");
+  }
+  ctx.globalAlpha = 1;
+  const flick = 0.85 + 0.15 * Math.sin(t * 6);
+  for (const wx of [0.2, 0.65]) {
+    ctx.globalAlpha = 0.25 * flick;
+    R(hx + hw * wx - 3 * S, htop + 11 * S, 16 * S, 16 * S, "#ffb040");
+    ctx.globalAlpha = 1;
+    R(hx + hw * wx, htop + 14 * S, 10 * S, 10 * S, `rgb(255,${Math.round(200 * flick)},${Math.round(90 * flick)})`);
+    R(hx + hw * wx + 5 * S - 1, htop + 14 * S, 1, 10 * S, "#3a1a50");
+  }
+  R(hx + hw * 0.42, floorY - 20 * S, 12 * S, 20 * S, "#1a0a24");
+
+  // the floor: purple stone
+  R(0, floorY, W, H - floorY, "#3a1a50");
+  for (let x = 0; x < W; x += 16 * S) R(x, floorY, 1, H - floorY, "#2e1440");
+  R(0, floorY, W, S, "#7d42a6");
+
+  // the big bare black tree
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "#140a18";
+  for (const [x1, y1, x2, y2, wdt] of branches) {
+    ctx.lineWidth = wdt;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  }
+  R(W * 0.62 - 9 * S, H * 0.36, 18 * S, floorY - H * 0.36, "#140a18");
+  poly([[W * 0.62 - 9 * S, floorY], [W * 0.62 - 20 * S, floorY], [W * 0.62 - 9 * S, floorY - 12 * S]], "#140a18");
+  poly([[W * 0.62 + 9 * S, floorY], [W * 0.62 + 20 * S, floorY], [W * 0.62 + 9 * S, floorY - 12 * S]], "#140a18");
+
+  // piles of red leaves on the floor
+  for (let k = 0; k < 40; k++) {
+    const lx = (k * 53) % W, ly = floorY + 3 * S + (k * 17) % (H - floorY - 6 * S);
+    ellipse(lx, ly, 6 * S, 2 * S, k % 3 ? "#c8202a" : "#e8402a");
+  }
+  ellipse(W * 0.62, floorY + 6 * S, 40 * S, 6 * S, "#b01a24");
+  ellipse(W * 0.62, floorY + 5 * S, 30 * S, 4 * S, "#d8302a");
+
+  // falling leaves
+  const n = Math.round(leaves.length * Math.min(1, opts.leaves));
+  for (let i = 0; i < n; i++) {
+    const l = leaves[i];
+    l.y += l.vy * dt;
+    l.x += Math.sin(t * 1.4 + l.p) * l.sway * dt;
+    if (l.y > H) Object.assign(l, newLeaf(false));
+    const spin = Math.sin(t * 3 + l.p) > 0;
+    R(l.x, l.y, spin ? 2 * S : S, spin ? S : 2 * S, l.p > 3 ? "#e8402a" : "#c8202a");
+  }
+
+  // a soft glow, like light from far above
+  const g = ctx.createRadialGradient(W * 0.62, 0, 0, W * 0.62, 0, H);
+  g.addColorStop(0, "rgba(255,220,255,0.12)");
+  g.addColorStop(1, "rgba(255,220,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+function livelyPropertyListener(name, val) {
+  if (name in opts) opts[name] = val;
+}
+</script>
+</body>
+</html>

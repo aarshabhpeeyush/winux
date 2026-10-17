@@ -1,0 +1,200 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Mettaton Stage</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #12041a; overflow: hidden; }
+  canvas { width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// Mettaton's stage: pink spotlights, glittery curtains, a big METTATON sign,
+// floating hearts, and Mettaton EX switching between fabulous poses.
+const PIXEL = 4;
+const opts = { speed: 1, hearts: true };
+
+const c = document.getElementById("c");
+const ctx = c.getContext("2d");
+let W, H, S, hearts = [], sparkles = [];
+
+const R = (x, y, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+function ellipse(cx, cy, rx, ry, col) {
+  ctx.fillStyle = col;
+  for (let y = -ry; y <= ry; y++) {
+    const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - (y * y) / (ry * ry))));
+    ctx.fillRect(Math.round(cx - half), Math.round(cy + y), half * 2 + 1, 1);
+  }
+}
+function poly(pts, col) {
+  ctx.fillStyle = col;
+  ctx.beginPath();
+  pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+  ctx.closePath();
+  ctx.fill();
+}
+const rnd = (a, b) => a + Math.random() * (b - a);
+const HEART = ["0110110", "1111111", "1111111", "0111110", "0011100", "0001000"];
+function heart(x, y, s, col) {
+  ctx.fillStyle = col;
+  HEART.forEach((row, j) => [...row].forEach((p, i) => p === "1" && ctx.fillRect(Math.round(x + (i - 3) * s), Math.round(y + (j - 3) * s), s, s)));
+}
+
+// tiny pixel font for the sign
+const FONT = { M: "101111111101101", E: "111100110100111", T: "111010010010010", A: "010101111101101", O: "010101101101010", N: "110101101101101" };
+function sign(str, x, y, s, col) {
+  ctx.fillStyle = col;
+  for (const ch of str) {
+    const g = FONT[ch];
+    for (let i = 0; i < 15; i++) if (g[i] === "1") ctx.fillRect(Math.round(x + (i % 3) * s), Math.round(y + Math.floor(i / 3) * s), s, s);
+    x += 4 * s;
+  }
+}
+
+function resize() {
+  W = c.width = Math.ceil(innerWidth / PIXEL);
+  H = c.height = Math.ceil(innerHeight / PIXEL);
+  S = Math.max(1, Math.round(H / 270));
+  hearts = Array.from({ length: 22 }, () => newHeart(true));
+  sparkles = Array.from({ length: 60 }, () => ({ x: rnd(0, W), y: rnd(0, H * 0.7), p: rnd(0, 6) }));
+}
+function newHeart(anywhere) {
+  return { x: rnd(0, W), y: anywhere ? rnd(0, H) : H + 8, v: rnd(8, 16), p: rnd(0, 6), s: Math.random() < 0.3 ? 2 : 1 };
+}
+addEventListener("resize", resize);
+resize();
+
+// Mettaton EX, drawn from the user's reference: black with white outlines,
+// a huge hair swoop, long pointed shoulder pads, a chest with a speaker grill
+// and a dial, studded arms with open white gloves, one leg crossed behind.
+// Every few seconds he flips his pose to the other side.
+function mettaton(cx, floorY, t) {
+  const s = S * 1.2;
+  const flip = Math.floor(t / 3) % 2 ? -1 : 1;
+  const bob = Math.round(Math.sin(t * 2.2) * s);
+  ctx.save();
+  ctx.translate(cx, floorY - bob);
+  ctx.scale(flip, 1);
+  const K = "#000000", Wh = "#ffffff";
+  // draw a shape twice: a white copy grown by one pixel (the outline), then black
+  const outlined = (draw) => { draw(Wh, s); draw(K, 0); };
+  const P = (pts, col, g) => poly(pts.map(([x, y]) => [x * s + (x > 0 ? g : -g), y * s + (y > 0 ? g : -g)]), col);
+
+  // back leg (bent, crossed behind) and front leg (straight down to the heel)
+  outlined((col, g) => P([[-1, -50], [5, -50], [12, -30], [6, -12], [2, -14], [6, -30], [1, -44]], col, g));
+  outlined((col, g) => P([[-6, -52], [1, -52], [2, -6], [4, 0], [-3, 0], [-5, -6]], col, g));
+  R(-2 * s, -9 * s, s, 6 * s, Wh);                                     // shine on the boot
+  // waist / belt plate
+  outlined((col, g) => P([[-9, -62], [9, -62], [7, -50], [-7, -50]], col, g));
+  // arms: down and out, with white studs, and open gloves
+  for (const side of [-1, 1]) {
+    const flap = Math.sin(t * 3 + side) * 1.5;
+    outlined((col, g) => P([[side * 10, -84], [side * 14, -84], [side * 28, -60 + flap], [side * 24, -58 + flap]], col, g));
+    for (let k = 0; k < 4; k++) R((side * (12 + k * 3.5)) * s - s / 2, (-80 + k * 6 + flap * k / 4) * s, s, s, Wh);
+    // the glove: an open palm
+    ellipse(side * 30 * s, (-58 + flap) * s, 5 * s, 3 * s, Wh);
+    for (let f = 0; f < 3; f++) R((side * (32 + f * 2)) * s, (-62 + f + flap) * s, s * 2 * side, s, K);
+  }
+  // chest box with the speaker grill and the dial
+  outlined((col, g) => P([[-11, -86], [11, -86], [10, -63], [-10, -63]], col, g));
+  for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) R((-8 + x * 2) * s, (-82 + y * 2) * s, s, s, Wh);
+  ellipse(5 * s, -79 * s, 3.5 * s, 3.5 * s, Wh);
+  ellipse(5 * s, -79 * s, 2.5 * s, 2.5 * s, K);
+  R(5 * s, -81 * s, s, 2 * s, Wh);                                      // the dial's hand
+  // long pointed shoulder pads
+  outlined((col, g) => P([[-30, -88], [30, -88], [12, -84], [-12, -84]], col, g));
+  // neck + face
+  R(-2 * s, -94 * s, 4 * s, 8 * s, K);
+  ellipse(1 * s, -101 * s, 7 * s, 8 * s, Wh);
+  R(-3 * s, -102 * s, 2 * s, 2 * s, K);                                // the eye you can see
+  R(-3 * s, -97 * s, 5 * s, s, K);                                     // smile
+  R(-2 * s, -96 * s, 3 * s, s, "#c0306a");
+  // the hair: a big black swoop over the top and one side, white-outlined
+  outlined((col, g) => P([[-9, -108], [-4, -114], [6, -114], [11, -108], [10, -92], [6, -88], [5, -100], [-6, -106]], col, g));
+  ctx.restore();
+}
+
+let last = performance.now(), t = 0;
+function frame(now) {
+  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)) * opts.speed;
+  last = Math.max(last, now);
+  t += dt;
+
+  R(0, 0, W, H, "#12041a");
+  const stageY = Math.round(H * 0.76);
+
+  // back wall with glitter
+  const bg = ctx.createLinearGradient(0, 0, 0, stageY);
+  bg.addColorStop(0, "#1a0428");
+  bg.addColorStop(1, "#3a0a48");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, stageY);
+  for (const sp of sparkles) {
+    ctx.globalAlpha = Math.max(0, Math.sin(t * 2 + sp.p));
+    R(sp.x, sp.y, 1, 1, "#ffd0f0");
+  }
+  ctx.globalAlpha = 1;
+
+  // the big METTATON sign with chasing bulbs
+  const word = "METTATON", ss = 3 * S, sw = word.length * 4 * ss - ss;
+  const sx = W / 2 - sw / 2, sy = 12 * S;
+  R(sx - 8 * S, sy - 6 * S, sw + 16 * S, 5 * ss + 12 * S, "#2a0638");
+  sign(word, sx, sy, ss, Math.floor(t * 2) % 2 ? "#ff4fa3" : "#ffd23a");
+  let b = 0;
+  for (let x = sx - 6 * S; x < sx + sw + 8 * S; x += 6 * S) {
+    for (const y of [sy - 4 * S, sy + 5 * ss + 4 * S]) {
+      const on = (Math.floor(t * 8) + b++) % 4 !== 0;
+      R(x, y, 2 * S, 2 * S, on ? "#fff2a0" : "#5a3a20");
+    }
+  }
+
+  // pink curtains
+  for (const side of [0, 1]) {
+    const cw = W * 0.16;
+    for (let k = 0; k < 7; k++) {
+      const fx = side ? W - cw + (k * cw) / 7 : (k * cw) / 7;
+      const sway = Math.sin(t * 0.9 + k) * 1.5;
+      R(fx + sway, 0, cw / 7 + 1, stageY, k % 2 ? "#c0186a" : "#e02a82");
+    }
+  }
+
+  // stage
+  R(0, stageY, W, H - stageY, "#2a0a30");
+  for (let x = 0; x < W; x += 14 * S) R(x, stageY, 1, H - stageY, "#1c0620");
+  R(0, stageY, W, 2 * S, "#ff4fa3");
+
+  // spotlights sweeping
+  ctx.globalCompositeOperation = "lighter";
+  for (const k of [0, 1, 2]) {
+    const ox = W * (0.2 + k * 0.3), aim = W / 2 + Math.sin(t * (0.6 + k * 0.2) + k * 2) * W * 0.25;
+    const g = ctx.createLinearGradient(0, 0, 0, stageY);
+    g.addColorStop(0, ["rgba(255,90,180,0.35)", "rgba(255,230,120,0.3)", "rgba(200,120,255,0.3)"][k]);
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    poly([[ox - 3 * S, 0], [ox + 3 * S, 0], [aim + 24 * S, stageY], [aim - 24 * S, stageY]], g);
+  }
+  ctx.globalCompositeOperation = "source-over";
+
+  mettaton(W / 2, stageY + 6 * S, t);
+
+  // floating hearts
+  if (opts.hearts) for (const h of hearts) {
+    h.y -= h.v * dt;
+    h.x += Math.sin(t + h.p) * 5 * dt;
+    if (h.y < -8) Object.assign(h, newHeart(false));
+    ctx.globalAlpha = 0.75;
+    heart(h.x, h.y, h.s * S, h.p > 3 ? "#ff4fa3" : "#ffd23a");
+  }
+  ctx.globalAlpha = 1;
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+function livelyPropertyListener(name, val) {
+  if (name in opts) opts[name] = val;
+}
+</script>
+</body>
+</html>

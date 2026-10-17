@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.2 (in progress)
+
+- 4 new themes, each with its own animated pixel wallpaper:
+  - **Hotland**: red rock, a magma river, steam vents, and the CORE pulsing in the distance.
+  - **The Ruins**: purple brick, the big bare tree, falling red leaves and Toriel's house.
+  - **Mettaton Stage**: pink spotlights, curtains, floating hearts and Mettaton EX posing.
+  - **Spamton's Basement**: a dark alley full of [[DEALS]]; Spamton pops out of the dumpster.
+
 ## 1.0.2 beta (2026-10-15)
 
 A first look at 1.0.2. Still coming in the full 1.0.2: four new themes (Hotland + CORE,

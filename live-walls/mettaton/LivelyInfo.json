@@ -1,0 +1,19 @@
+{
+  "AppVersion": "2.2.1.0",
+  "Title": "Mettaton Stage",
+  "Thumbnail": null,
+  "Preview": null,
+  "Desc": "Spotlights, curtains, floating hearts and Mettaton EX posing.",
+  "Author": "WinUx",
+  "License": "",
+  "Contact": "",
+  "Type": 1,
+  "FileName": "index.html",
+  "Arguments": null,
+  "IsAbsolutePath": false,
+  "Id": null,
+  "Tags": [
+    "winux"
+  ],
+  "Version": 0
+}
