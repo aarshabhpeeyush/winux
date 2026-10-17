@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.0.3 (2026-10-17)
+
+- **Cursor maker** (ICONS+SOUNDS → ✎ DRAW): draw your own arrow, hand and a 2 to 4 frame
+  loading animation on a 16×16 pixel grid. Paint, fill, eraser, undo, flip, and a TIP tool
+  for the exact pixel that clicks. SAVE + WEAR puts them on; SHARE saves a `.winuxcursor`
+  file a friend can IMPORT.
+- **Folder colors**: right-click any folder in File Explorer → **WinUx folder color** (the
+  seven soul colors plus pink, white and gray) or **WinUx folder emblem** (heart, star,
+  controller, music note). Turn the menu on in ICONS+SOUNDS. RESTORE and uninstall put every
+  folder back.
+- **Achievements** (new ACHIEVEMENTS tab): 29 of them for using WinUx, playing the live walls,
+  using your PC (Focus Timer wins, petting the Annoying Dog, hours, late nights) and some
+  secret ones. They pop up by the clock when you get one.
+- **Spamton's [[SHOP]]**: click the dumpster in Spamton's Basement. Great [[DEALS]]!
+- **Pixel screensaver** (WALLPAPER tab): after 1 to 30 minutes away, a bouncing soul, Dark World
+  stars, the sleeping Annoying Dog or a save point fills the screen. Move the mouse to come back.
+  It waits while a video or full-screen game is on. Off until you pick a time.
+- **New app icons**: GitHub Desktop, Unity, and Godot (drawn as Undyne).
+
 ## 1.0.2 (2026-10-17)
 
 Everything from the 1.0.2 beta (new widgets and the Judgment Hall Sans fight), plus:

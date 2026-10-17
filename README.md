@@ -44,6 +44,12 @@ Every theme comes with its own animated pixel-art wallpaper.
   NGAAAAH!, or your own .wav / .mp3.
 - **Soul color**: pick one of the seven souls; every heart in WinUx follows it.
 - **Lock screen match**: your lock screen follows your wallpaper (live ones as a snapshot).
+- **Cursor maker**: draw your own pixel cursors (arrow, hand, loading animation) and share
+  them as `.winuxcursor` files.
+- **Folder colors**: right-click a folder → WinUx folder color / emblem (heart, star,
+  controller, music note). On Windows 11, pick **Show more options** first.
+- **Achievements**: 29 to collect, some of them secret.
+- **Pixel screensaver**: turns on after you've been away for a while (WALLPAPER tab).
 
 ## Widgets
 
@@ -73,8 +79,8 @@ Right-click any widget → **Edit skin** to change things like the Weather city 
 
 In **ICONS+SOUNDS → App icons**, pick **Pixel** to give your apps pixel-art logos: on the
 desktop, in the Start menu and on the taskbar. Covered so far: Chrome, File Explorer,
-folders, Claude, VLC, Discord, Spotify, Roblox, DELTARUNE, UNDERTALE, Steam, Lively, Zoom
-and Python. Pick **Original** to put every icon back.
+folders, Claude, VLC, Discord, Spotify, Roblox, DELTARUNE, UNDERTALE, Steam, Lively, Zoom,
+Python, GitHub Desktop, Unity and Godot (as Undyne). Pick **Original** to put every icon back.
 
 - Windows asks for permission once, for shortcuts shared by everyone and the folder icon.
 - On Windows 11 with Windhawk's **Taskbar Styler** mod, the Start button (classic

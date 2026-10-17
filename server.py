@@ -66,7 +66,7 @@ LIVELY_DATA = Path(os.environ.get("LOCALAPPDATA", "")) / "Lively Wallpaper"
 LIVELY_LIB = LIVELY_DATA / "Library" / "wallpapers"
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp"}
 VIDEO_EXTS = {".mp4", ".webm", ".mkv", ".mov", ".gif"}
-VERSION = "1.0.2"
+VERSION = "1.0.3"
 TOKEN = secrets.token_hex(16)
 
 for d in (WALLPAPERS, ART_INBOX, THEMES, BACKUPS, LIVE_WALLS):
