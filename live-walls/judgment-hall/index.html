@@ -25,7 +25,9 @@
 // Sans" plays only during the fight. (WinUx's only theme that's playable AND has music.)
 const PIXEL = 4;
 const opts = { sans: true, speed: 1, game: true, music: true, volume: 50 };
-const SONG = "47GvY9rOMUs";   // "Song That Might Play When You Fight Sans" - Toby Fox
+const SONG = "47GvY9rOMUs";
+const SNAPSHOT = location.search.includes("snapshot");   // a still for the lock screen: no hints
+   // "Song That Might Play When You Fight Sans" - Toby Fox
 
 const c = document.getElementById("c");
 const ctx = c.getContext("2d");
@@ -190,7 +192,7 @@ function drawHall(dt, t) {
     if (hallArt) hallSansArt(W / 2, floorY + 18 * S, t, eye);
     else sansSilhouette(W / 2, floorY + 18 * S, t, eye);
   } else hideHallArt();
-  if (opts.game) {
+  if (opts.game && !SNAPSHOT) {
     ctx.globalAlpha = 0.45 + 0.25 * Math.sin(t * 2);
     const m = "PRESS ANY KEY TO FIGHT SANS";
     text(m, W / 2 - textWidth(m, S) / 2, H - 10 * S, S, "#3a2008");

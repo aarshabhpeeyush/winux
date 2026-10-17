@@ -15,6 +15,8 @@
 // Arrow keys / WASD move the soul (click the desktop first so it gets the keys).
 // Leave it alone for a few seconds and the soul dodges by itself.
 const PIXEL = 4;
+const SNAPSHOT = location.search.includes("snapshot");   // a still for the lock screen: no hints
+
 const opts = { soul: "#ff1a1a", speed: 1, bullets: 1, flowey: true };
 
 const c = document.getElementById("c");
@@ -336,7 +338,7 @@ function frame(now) {
   R(x, y, Math.round(barW * hp / MAXHP), 5 * S, "#ffe600");
   text(`${hp} / ${MAXHP}`, x + barW + 6 * S, y, S, "#fff");
   const hint = mode === "player" ? "YOU'RE IN CONTROL!" : "CLICK THE DESKTOP, THEN USE ARROWS OR WASD";
-  ctx.globalAlpha = mode === "player" ? 0.8 : 0.45 + 0.2 * Math.sin(t * 2);
+  ctx.globalAlpha = SNAPSHOT ? 0 : mode === "player" ? 0.8 : 0.45 + 0.2 * Math.sin(t * 2);
   text(hint, W / 2 - textWidth(hint, S) / 2, y + 12 * S, S, mode === "player" ? "#fff" : "#aaa");
   ctx.globalAlpha = 1;
 

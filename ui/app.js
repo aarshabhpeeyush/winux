@@ -190,6 +190,7 @@ for (const cb of document.querySelectorAll("#tab-colors input[type=checkbox]")) 
 
 function render() {
   renderVersion();
+  $("lockMatch").checked = !!state.lockScreen;
   document.documentElement.style.setProperty("--accent", state.accent);
   $("nowAccent").style.background = state.accent;
   $("nowAccentText").textContent = state.accent;
@@ -430,6 +431,18 @@ $("tbUseAccent").addEventListener("click", () =>
 function renderVersion() {
   if (state.version) $("version").textContent = "v" + state.version;
 }
+
+// lock screen follows the wallpaper
+$("lockMatch").addEventListener("change", async (e) => {
+  try {
+    await api("/api/pref", { method: "POST", body: { key: "lockScreen", value: e.target.checked } });
+    state.lockScreen = e.target.checked;
+    say(e.target.checked ? "Your lock screen will match your wallpaper. Press Win+L to see it!"
+                         : "Your lock screen won't follow the wallpaper anymore.");
+  } catch (err) {
+    say(err.message, true);
+  }
+});
 
 function renderTaskbar() {
   $("tbLookGroup").hidden = !state.ttb;

@@ -1186,7 +1186,7 @@ def set_app_icons(pack):
 
 # ---------------------------------------------------------------- WinUx's own preferences
 PREFS = BACKUPS / "prefs.json"
-PREF_DEFAULTS = {"startupJingle": True, "tray": True, "lastTheme": None}
+PREF_DEFAULTS = {"startupJingle": True, "tray": True, "lastTheme": None, "lockScreen": False}
 
 
 def prefs():
@@ -1214,6 +1214,62 @@ def play_startup_jingle():
         except RuntimeError:
             pass
     threading.Thread(target=go, daemon=True).start()
+
+
+# ---------------------------------------------------------------- lock screen matches the wallpaper
+LOCK_TOOL = ROOT / "tools" / "lockscreen.ps1"
+LOCK_ORIGINAL = BACKUPS / "lockscreen-original.jpg"
+LOCK_SNAPSHOT = BACKUPS / "lockscreen.png"
+
+
+def edge_exe():
+    for base in (os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"), os.environ.get("ProgramFiles", r"C:\Program Files")):
+        p = Path(base) / "Microsoft" / "Edge" / "Application" / "msedge.exe"
+        if p.is_file():
+            return p
+    return None
+
+
+def snapshot_live(name):
+    """A still picture of one of our live wallpapers (Edge, hidden and muted)."""
+    edge = edge_exe()
+    if not edge:
+        return None
+    LOCK_SNAPSHOT.unlink(missing_ok=True)
+    w, h = screen_size()
+    subprocess.run([str(edge), "--headless=new", "--disable-gpu", "--hide-scrollbars", "--mute-audio",
+                    f"--user-data-dir={BACKUPS / 'edge-snapshot'}", f"--window-size={w},{h}",
+                    "--virtual-time-budget=4000", f"--screenshot={LOCK_SNAPSHOT}",
+                    f"http://127.0.0.1:{PORT}/livewall/{quote(name)}/index.html?snapshot=1"],
+                   capture_output=True, timeout=60, creationflags=subprocess.CREATE_NO_WINDOW)
+    return LOCK_SNAPSHOT if LOCK_SNAPSHOT.is_file() else None
+
+
+def set_lockscreen(picture):
+    out = BACKUPS / "tmp" / "lock-out.txt"
+    out.parent.mkdir(exist_ok=True)
+    out.unlink(missing_ok=True)
+    subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(LOCK_TOOL),
+                    "-Image", str(picture), "-SaveOriginal", str(LOCK_ORIGINAL), "-Out", str(out)],
+                   capture_output=True, timeout=60, creationflags=subprocess.CREATE_NO_WINDOW)
+    return out.read_text(encoding="utf-8-sig") if out.is_file() else ""
+
+
+def match_lockscreen():
+    """Make the lock screen show the current wallpaper (a snapshot if it's a live one)."""
+    live = get_state().get("live") or ""
+    pic = None
+    if live.startswith("mine:") and (LIVE_WALLS / live[5:]).is_dir():
+        pic = snapshot_live(live[5:])
+    if not pic:
+        wp = rget(DESKTOP, "WallPaper", "")
+        pic = Path(wp) if wp and Path(wp).is_file() else None
+    return set_lockscreen(pic) if pic else "fail no picture"
+
+
+def match_lockscreen_later():
+    import threading
+    threading.Thread(target=lambda: match_lockscreen(), daemon=True).start()
 
 
 # ---------------------------------------------------------------- tray icon + Ctrl+Alt+T
@@ -1396,6 +1452,7 @@ def get_state():
     wp = rget(DESKTOP, "WallPaper", "")
     return {
         "version": VERSION,
+        "lockScreen": prefs()["lockScreen"],
         "win11": WIN11,
         "webview2": webview2_installed(),
         "appsDark": rget(PERSONALIZE, "AppsUseLightTheme", 1) == 0,
@@ -1459,6 +1516,8 @@ def apply_settings(s):
     if s.get("icons") in ("default", "pixel"):
         set_icons(s["icons"])
     app_result = None
+    if prefs()["lockScreen"] and ("wallpaper" in s or "live" in s):
+        match_lockscreen_later()
     if s.get("appIcons") in ("default", "pixel"):
         app_result = set_app_icons(s["appIcons"])
 
@@ -1572,6 +1631,13 @@ def restore_original():
     refresh_icons()
     if app_icons_state() != "default":
         set_app_icons("default")
+    if prefs()["lockScreen"] or LOCK_ORIGINAL.is_file():
+        # your old lock screen picture, or Windows' standard one if it couldn't be saved
+        default = Path(os.environ.get("WINDIR", r"C:\Windows")) / "Web" / "Screen" / "img100.jpg"
+        pic = LOCK_ORIGINAL if LOCK_ORIGINAL.is_file() else (default if default.is_file() else None)
+        if pic:
+            set_lockscreen(pic)
+        set_pref("lockScreen", False)
     if RAINMETER.is_file() and "rainmeterActive" in data:
         # Put the widgets back exactly how they were: same ones on, same ones off.
         was, now = data["rainmeterActive"], active_configs()
@@ -2026,6 +2092,14 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send_json({"error": "Give your theme a name."}, 400)
                 self.send_json({"id": save_theme(name, body.get("settings", {}),
                                                  str(body.get("blurb", "")))})
+            elif url.path == "/api/pref":
+                key, value = str(body.get("key", "")), bool(body.get("value"))
+                if key != "lockScreen":
+                    return self.send_json({"error": "Unknown setting."}, 400)
+                set_pref(key, value)
+                if value:
+                    match_lockscreen_later()
+                self.send_json(prefs())
             elif url.path == "/api/restore":
                 self.send_json(restore_original())
             elif url.path == "/api/widget":

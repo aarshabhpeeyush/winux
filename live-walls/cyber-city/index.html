@@ -20,6 +20,8 @@
 //   C  Ralsei's heal (costs 32% TP)  -  graze bullets to build TP
 // Leave it alone for 15 seconds and it goes back to the city.
 const PIXEL = 4;
+const SNAPSHOT = location.search.includes("snapshot");   // a still for the lock screen: no hints
+
 const opts = { neon: "#ff3ea5", speed: 1, jitter: true, game: true };
 
 const c = document.getElementById("c");
@@ -251,7 +253,7 @@ function drawCity(dt, t) {
   drawNeo(Math.round(W * 0.47) + jx, floorY - 4 + Math.round(Math.sin(t * 2) * 2 * S), S, opts.neon, t);
 
   // a quiet hint every so often
-  if (opts.game && t % 40 > 34) {
+  if (opts.game && !SNAPSHOT && t % 40 > 34) {
     ctx.globalAlpha = Math.min(1, (t % 40 - 34), 40 - t % 40) * 0.6;
     const hint = "PRESS AN ARROW KEY TO FIGHT";
     text(hint, W - textWidth(hint, S) - 6 * S, H - 8 * S, S, "#ffd6ef");
