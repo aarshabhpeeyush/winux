@@ -1,6 +1,7 @@
 """WinUx's own pixel cursors, desktop icons and chiptune sounds.
 Everything is drawn here as text grids / notes and turned into real files by pixelart.py."""
 
+import json
 from pathlib import Path
 
 import pixelart as px
@@ -425,6 +426,58 @@ def build_cursors(scheme, accent="#ffe600", soul="#ff1a1a"):
         files["AppStarting"] = save(f"working{tag}.ani", px.ani(working, 9))
     files["IBeam"] = save(f"ibeam{tag}.cur", _cursor_file(IBEAM, {"X": BLACK, "W": WHITE}, (7 / 15, 0.5)))
     files["Wait"] = save("save-star-wait.ani", px.ani(star, 7))
+    return files
+
+
+# ---------------------------------------------------------------- cursor maker
+# A cursor set you drew yourself: 16x16 grids using ".XWABC" (. = see-through),
+# plus the colors for X, W, A, B, C and where each cursor "points".
+CUSTOM_CHARS = ".XWABC"
+
+
+def cursor_starter(soul="#ff1a1a"):
+    """The WinUx Pixel cursors, as a set the cursor maker can start from."""
+    swap = str.maketrans({"S": "A"})
+    return {
+        "winuxCursors": 1, "name": "My cursors",
+        "colors": {"X": "#000000", "W": "#ffffff", "A": "#ffe600", "B": soul, "C": "#3b6fd8"},
+        "arrow": list(ARROW), "hand": list(HAND),
+        "loading": [[r.translate(swap) for r in with_star(ARROW, arm)] for arm in (1, 2, 3, 2)],
+        "arrowTip": [0, 0], "handTip": [5, 0], "loadingTip": [0, 0],
+    }
+
+
+def build_custom_cursors(cset):
+    """Write the cursor files for a set from the cursor maker; return {Windows cursor role: path}."""
+    import hashlib
+    folder = OUT / "cursors" / "custom"
+    folder.mkdir(parents=True, exist_ok=True)
+    pal = {k: px.hex_rgb(v) for k, v in cset["colors"].items()}
+    tag = hashlib.sha1(json.dumps(cset, sort_keys=True).encode()).hexdigest()[:8]
+    tip = lambda key: (cset[key][0] / 15, cset[key][1] / 15)
+    names = {"Arrow": f"arrow-{tag}.cur", "Hand": f"hand-{tag}.cur", "AppStarting": f"loading-{tag}.ani"}
+    for old in folder.iterdir():          # tidy up older drawings (ones in use stay until next time)
+        if old.name not in names.values() and old.name != "ibeam.cur":
+            try:
+                old.unlink()
+            except OSError:
+                pass
+    files = {}
+
+    def save(name, data):
+        p = folder / name
+        write_if_changed(p, data)
+        return str(p)
+
+    files["Arrow"] = save(names["Arrow"], _cursor_file(cset["arrow"], pal, tip("arrowTip")))
+    files["Hand"] = save(names["Hand"], _cursor_file(cset["hand"], pal, tip("handTip")))
+    files["AppStarting"] = save(names["AppStarting"],
+                                px.ani([_cursor_file(f, pal, tip("loadingTip")) for f in cset["loading"]], 9))
+    files["Wait"] = files["AppStarting"]
+    files["IBeam"] = save("ibeam.cur", _cursor_file(IBEAM, {"X": BLACK, "W": WHITE}, (7 / 15, 0.5)))
+    write_if_changed(OUT / "previews" / "cursors-custom.png",
+                     _strip([(cset["arrow"], pal), (cset["hand"], pal), (IBEAM, {"X": BLACK, "W": WHITE}),
+                             (cset["loading"][0], pal)]))
     return files
 
 

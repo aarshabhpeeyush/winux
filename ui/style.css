@@ -492,3 +492,27 @@ input[type=text]:focus, select:focus { outline: none; border-color: var(--select
 .soul-heart { font-size: 30px; line-height: 1; }
 .soul-name { font-size: 16px; color: var(--muted); }
 .soul-pick.on .soul-name { color: var(--line); }
+
+/* ---------- cursor maker ---------- */
+.maker { border: 3px solid var(--faint); padding: 14px; margin: -8px 0 24px; }
+.maker-main { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-start; }
+.maker-grid {
+  display: grid; grid-template-columns: repeat(16, 22px); grid-template-rows: repeat(16, 22px);
+  border: 3px solid var(--line); cursor: crosshair; user-select: none;
+  background: repeating-conic-gradient(#2a2c33 0 25%, #1b1c21 0 50%) 0 0 / 22px 22px;
+}
+.maker-grid div { position: relative; }
+.maker-grid div.tip::after {
+  content: "✚"; position: absolute; inset: 0; color: var(--soul); font-size: 22px; line-height: 22px; text-align: center;
+  text-shadow: 0 0 2px #000;
+}
+.maker-side { display: flex; flex-direction: column; gap: 10px; min-width: 260px; flex: 1; }
+.maker-colors { display: flex; gap: 8px; flex-wrap: wrap; }
+.maker-color {
+  width: 44px; height: 44px; border: 3px solid var(--faint); cursor: pointer; position: relative;
+}
+.maker-color.erase { background: repeating-conic-gradient(#444 0 25%, #222 0 50%) 0 0 / 14px 14px; }
+.maker-color.on { border-color: var(--select); outline: 3px solid var(--select); outline-offset: 2px; }
+.maker-color input { position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0; }
+.maker-preview { background: #3a6ea5; border: 3px solid var(--faint); align-self: flex-start; }
+.maker-preview canvas { display: block; image-rendering: pixelated; }

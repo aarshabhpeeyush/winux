@@ -45,6 +45,10 @@ PALETTE = {
     "p": (55, 118, 171, 255),     # python blue
     "q": (255, 212, 59, 255),     # python yellow
     "m": (130, 130, 145, 255),    # task view grey
+    "k": (36, 41, 47, 255),       # github dark
+    "u": (77, 141, 232, 255),     # Undyne blue
+    "r": (232, 48, 58, 255),      # Undyne's red hair
+    "y": (255, 226, 74, 255),     # Undyne's yellow eye
 }
 
 
@@ -311,6 +315,68 @@ def controller(c):
     c.put(11, 8, "Y")
 
 
+def github(c):
+    paint(c, [
+        "................",
+        ".....kkkkkk.....",
+        "...kkkkkkkkkk...",
+        "..kkWkkkkkkWkk..",
+        ".kkkWWWWWWWWkkk.",
+        ".kkWWWWWWWWWWkk.",
+        "kkkWWWWWWWWWWkkk",
+        "kkkWWWWWWWWWWkkk",
+        "kkkWWWWWWWWWWkkk",
+        "kkkkWWWWWWWWkkkk",
+        ".kWkkkWWWWkkkkk.",
+        ".kkWWkWWWWkkkkk.",
+        "..kkkkWWWWkkkk..",
+        "...kkkWWWWkkk...",
+        ".....kkkkkk.....",
+    ])
+
+
+def unity(c):
+    paint(c, [
+        "................",
+        ".KKKKKKKKKKKKKK.",
+        ".KKKKKKWWKKKKKK.",
+        ".KKKKKWWWWKKKKK.",
+        ".KKKKWWKKWWKKKK.",
+        ".KKKWWKKKKWWKKK.",
+        ".KKWWWKKKKWWWKK.",
+        ".KKWKWWKKWWKWKK.",
+        ".KKWKKWWWWKKWKK.",
+        ".KKWKKKWWKKKWKK.",
+        ".KKWKKKWWKKKWKK.",
+        ".KKWWKKWWKKWWKK.",
+        ".KKKWWKWWKWWKKK.",
+        ".KKKKWWWWWWKKKK.",
+        ".KKKKKKWWKKKKKK.",
+        ".KKKKKKKKKKKKKK.",
+    ])
+
+
+def godot(c):
+    # Godot, as Undyne: blue face and fins, red ponytail, eyepatch, yellow eye, sharp grin
+    paint(c, [
+        "..........rrr...",
+        ".....rrrrrrrrr..",
+        "....rrrrrrrrrr..",
+        "...rrrrrrrrrrr..",
+        "..urrrrrrrrrru..",
+        ".uuurruuuuuruuu.",
+        "uuuuuuuuuuuuuuuu",
+        ".uKKKKuuuyyyuuu.",
+        ".uKKKKuuuyKyuuu.",
+        "..uKKuuuuuyuuu..",
+        "..uuuuuuuuuuuu..",
+        "..uuWuWuWuWuuu..",
+        "..uuWWWWWWWuuu..",
+        "...uuuuuuuuuu...",
+        "....uuuuuuuu....",
+    ])
+
+
 ICONS = {
     "chrome": ("Chrome", chrome), "files": ("File Explorer", files), "folder": ("Folders", folder),
     "claude": ("Claude", claude), "vlc": ("VLC", vlc), "discord": ("Discord", discord),
@@ -319,6 +385,7 @@ ICONS = {
     "steam": ("Steam", steam), "lively": ("Lively Wallpaper", lively),
     "zoom": ("Zoom", zoom), "python": ("Python", python), "taskview": ("Task View", taskview),
     "controller": ("Games", controller),
+    "github": ("GitHub", github), "unity": ("Unity", unity), "godot": ("Godot", godot),
 }
 
 

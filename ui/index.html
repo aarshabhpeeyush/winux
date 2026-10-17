@@ -231,6 +231,48 @@
           <button class="look" data-val="pixel"><img class="look-pic" src="/gen/previews/cursors-pixel.png" alt=""><div class="look-name">Pixel</div></button>
           <button class="look" data-val="pixel-accent"><img class="look-pic" id="accentCursorPic" src="/gen/previews/cursors-pixel-accent.png" alt=""><div class="look-name">Pixel Accent</div></button>
           <button class="look" data-val="soul"><img class="look-pic" src="/gen/previews/cursors-soul.png" alt=""><div class="look-name">Soul</div></button>
+          <button class="look hidden" data-val="custom" id="myCursorLook"><img class="look-pic" id="myCursorPic" src="" alt=""><div class="look-name">Mine</div></button>
+          <button class="look" id="openMaker"><div class="look-pic plain">✎ DRAW</div><div class="look-name">Cursor maker</div></button>
+        </div>
+
+        <div class="maker hidden" id="maker">
+          <div class="row">
+            <div class="seg" id="makerParts">
+              <button data-part="arrow" class="on">ARROW</button>
+              <button data-part="hand">HAND</button>
+              <button data-part="loading">LOADING</button>
+            </div>
+            <div class="seg hidden" id="makerFrames"></div>
+          </div>
+          <div class="maker-main">
+            <div class="maker-grid" id="makerGrid"></div>
+            <div class="maker-side">
+              <div class="label inline">* Colors <small class="dim">(click to paint, click again to change it)</small></div>
+              <div class="maker-colors" id="makerColors"></div>
+              <div class="label inline">* Tools</div>
+              <div class="seg" id="makerTools">
+                <button data-tool="paint" class="on">✎ PAINT</button>
+                <button data-tool="fill">▧ FILL</button>
+                <button data-tool="tip">✚ TIP</button>
+              </div>
+              <div class="row">
+                <button class="btn small" id="makerUndo">UNDO</button>
+                <button class="btn small" id="makerClear">CLEAR</button>
+                <button class="btn small" id="makerFlip">FLIP ↔</button>
+                <button class="btn small" id="makerStarter">START OVER</button>
+              </div>
+              <div class="label inline">* How it looks</div>
+              <div class="maker-preview"><canvas id="makerPreview" width="216" height="72"></canvas></div>
+              <p class="hint small">* Right-click erases. <b>TIP</b> = the exact pixel that clicks (red cross).</p>
+            </div>
+          </div>
+          <div class="row">
+            <input type="text" id="makerName" placeholder="Name your cursors..." maxlength="30">
+            <button class="btn primary" id="makerSave">SAVE + WEAR</button>
+            <button class="btn" id="makerShare">SHARE</button>
+            <label class="btn">IMPORT<input type="file" id="makerImport" accept=".winuxcursor,.json" hidden></label>
+          </div>
+          <p class="hint small">* SHARE gives you a .winuxcursor file. A friend clicks IMPORT to get your cursors.</p>
         </div>
 
         <div class="label">* Desktop icons <small class="dim">(This PC, Recycle Bin, your folder, Network)</small></div>
@@ -244,7 +286,7 @@
           <button class="look" data-val="default"><div class="look-pic plain">ORIGINAL</div><div class="look-name">Original</div></button>
           <button class="look" data-val="pixel"><img class="look-pic wide" src="/gen/previews/app-icons.png" alt=""><div class="look-name">Pixel</div></button>
         </div>
-        <p class="hint small">* Chrome, File Explorer, Claude, VLC, Discord, Spotify, Roblox, DELTARUNE, UNDERTALE, Steam, Lively, Zoom and Python.
+        <p class="hint small">* Chrome, File Explorer, Claude, VLC, Discord, Spotify, Roblox, DELTARUNE, UNDERTALE, Steam, Lively, Zoom, Python, GitHub, Unity and Godot.
           Windows asks for permission once (for shortcuts shared by everyone, and the folder icon).</p>
 
         <div class="label">* Sounds</div>

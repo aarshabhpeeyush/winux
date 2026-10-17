@@ -592,13 +592,14 @@ async function loadWidgets() {
 
 const LOOK_SAYS = {
   cursors: { default: "Your cursor is back to normal.", pixel: "Your cursor went pixel.",
-             "pixel-accent": "Your cursor matches your accent now.", soul: "Your cursor is a SOUL now. Stay determined." },
+             "pixel-accent": "Your cursor matches your accent now.", soul: "Your cursor is a SOUL now. Stay determined.",
+             custom: "You're wearing the cursors you drew!" },
   icons: { default: "Desktop icons are back to normal.", pixel: "Your desktop icons went pixel. Check your desktop!" },
   sounds: { default: "Windows sounds are back.", chiptune: "Windows sounds 8-bit now. *blip*", silent: "Shhh. Windows is silent now." },
 };
 
 for (const group of document.querySelectorAll(".looks")) {
-  for (const b of group.querySelectorAll(".look")) {
+  for (const b of group.querySelectorAll(".look[data-val]")) {
     b.addEventListener("click", async () => {
       if (group.dataset.key !== "appIcons") {
         return apply({ [group.dataset.key]: b.dataset.val }, LOOK_SAYS[group.dataset.key][b.dataset.val]);
@@ -674,10 +675,295 @@ function jingleButton(key, name, src) {
 function renderLooks() {
   renderJingles();
   $("accentCursorPic").src = `/gen/previews/cursors-pixel-accent.png?v=${(state.accent || "").slice(1)}`;
+  $("myCursorLook").classList.toggle("hidden", !state.myCursors);
+  if (state.myCursors && !$("myCursorPic").src.includes("cursors-custom")) $("myCursorPic").src = "/gen/previews/cursors-custom.png?v=" + Date.now();
   for (const group of document.querySelectorAll(".looks")) {
     for (const b of group.querySelectorAll(".look")) b.classList.toggle("on", state[group.dataset.key] === b.dataset.val);
   }
 }
+
+// ---------------------------------------------------------------- cursor maker
+// Draw your own arrow, hand and a 2-4 frame loading cursor on 16x16 pixel grids.
+
+const maker = { set: null, starter: null, part: "arrow", frame: 0, color: "X", tool: "paint", undo: [], loaded: false };
+const PAINTS = ["X", "W", "A", "B", "C"];
+
+function makerGridRows() {
+  const s = maker.set;
+  return maker.part === "loading" ? s.loading[maker.frame] : s[maker.part];
+}
+function makerSetRows(rows) {
+  if (maker.part === "loading") maker.set.loading[maker.frame] = rows;
+  else maker.set[maker.part] = rows;
+}
+const tipKey = () => maker.part + "Tip";
+
+function makerSnapshot() {
+  maker.undo.push(JSON.stringify(maker.set));
+  if (maker.undo.length > 60) maker.undo.shift();
+}
+
+function renderMaker() {
+  const s = maker.set;
+  if (!s) return;
+  // parts + loading frames
+  document.querySelectorAll("#makerParts button").forEach((b) => b.classList.toggle("on", b.dataset.part === maker.part));
+  const frames = $("makerFrames");
+  frames.classList.toggle("hidden", maker.part !== "loading");
+  frames.innerHTML = "";
+  s.loading.forEach((_, i) => {
+    const b = document.createElement("button");
+    b.textContent = i + 1;
+    b.className = i === maker.frame ? "on" : "";
+    b.addEventListener("click", () => { maker.frame = i; renderMaker(); });
+    frames.appendChild(b);
+  });
+  const add = document.createElement("button");
+  add.textContent = "+";
+  add.title = "Add a frame (copies this one)";
+  add.disabled = s.loading.length >= 4;
+  add.addEventListener("click", () => {
+    makerSnapshot();
+    s.loading.splice(maker.frame + 1, 0, [...s.loading[maker.frame]]);
+    maker.frame++;
+    renderMaker();
+  });
+  const del = document.createElement("button");
+  del.textContent = "−";
+  del.title = "Remove this frame";
+  del.disabled = s.loading.length <= 2;
+  del.addEventListener("click", () => {
+    makerSnapshot();
+    s.loading.splice(maker.frame, 1);
+    maker.frame = Math.min(maker.frame, s.loading.length - 1);
+    renderMaker();
+  });
+  frames.append(add, del);
+
+  // the grid
+  const rows = makerGridRows();
+  const tip = s[tipKey()];
+  const cells = $("makerGrid").children;
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      const cell = cells[y * 16 + x];
+      const ch = rows[y][x];
+      cell.style.background = ch === "." ? "" : s.colors[ch];
+      cell.classList.toggle("tip", tip[0] === x && tip[1] === y);
+    }
+  }
+  // colors: an eraser, then five paints (click the one you have to change its color)
+  const box = $("makerColors");
+  box.innerHTML = "";
+  const erase = document.createElement("div");
+  erase.className = "maker-color erase" + (maker.color === "." ? " on" : "");
+  erase.title = "Eraser";
+  erase.addEventListener("click", () => { maker.color = "."; renderMaker(); });
+  box.appendChild(erase);
+  for (const k of PAINTS) {
+    const sw = document.createElement("label");
+    sw.className = "maker-color" + (maker.color === k ? " on" : "");
+    sw.style.background = s.colors[k];
+    const input = document.createElement("input");
+    input.type = "color";
+    input.value = s.colors[k];
+    input.addEventListener("input", () => { s.colors[k] = input.value; sw.style.background = input.value; renderMaker(); });
+    sw.appendChild(input);
+    sw.addEventListener("click", (e) => {
+      if (maker.color === k) { makerSnapshot(); return; }   // opens the color picker
+      e.preventDefault();
+      maker.color = k;
+      if (maker.tool === "tip") maker.tool = "paint";
+      renderMaker();
+    });
+    box.appendChild(sw);
+  }
+  document.querySelectorAll("#makerTools button").forEach((b) => b.classList.toggle("on", b.dataset.tool === maker.tool));
+  $("makerUndo").disabled = !maker.undo.length;
+  if (document.activeElement !== $("makerName")) $("makerName").value = s.name || "";
+  drawMakerPreview();
+}
+
+// the preview: arrow, hand and loading at real size, plus the one you're drawing bigger,
+// on a Windows-blue background
+let previewTick = 0;
+function drawMakerPreview() {
+  const s = maker.set;
+  const cv = $("makerPreview");
+  const ctx = cv.getContext("2d");
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  const draw = (rows, ox, oy, px) => {
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const ch = rows[y][x];
+      if (ch === ".") continue;
+      ctx.fillStyle = s.colors[ch];
+      ctx.fillRect(ox + x * px, oy + y * px, px, px);
+    }
+  };
+  const loading = s.loading[previewTick % s.loading.length];
+  draw(s.arrow, 8, 20, 2);
+  draw(s.hand, 48, 20, 2);
+  draw(loading, 88, 20, 2);
+  draw(maker.part === "loading" ? loading : s[maker.part], 140, 4, 4);
+}
+setInterval(() => {
+  if (maker.set && !$("maker").classList.contains("hidden")) { previewTick++; drawMakerPreview(); }
+}, 150);
+
+function paintAt(x, y, erase, tool = maker.tool) {
+  const s = maker.set;
+  if (tool === "tip") {
+    s[tipKey()] = [x, y];
+    return renderMaker();
+  }
+  const rows = makerGridRows().map((r) => r.split(""));
+  const ch = erase ? "." : maker.color;
+  if (tool === "fill") {
+    const from = rows[y][x];
+    if (from === ch) return;
+    const stack = [[x, y]];
+    while (stack.length) {
+      const [cx, cy] = stack.pop();
+      if (cx < 0 || cy < 0 || cx > 15 || cy > 15 || rows[cy][cx] !== from) continue;
+      rows[cy][cx] = ch;
+      stack.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+    }
+  } else {
+    if (rows[y][x] === ch) return;
+    rows[y][x] = ch;
+  }
+  makerSetRows(rows.map((r) => r.join("")));
+  renderMaker();
+}
+
+// the 256 squares, made once; drag to paint, right-click (or drag) to erase
+(() => {
+  const grid = $("makerGrid");
+  let down = null;
+  for (let i = 0; i < 256; i++) {
+    const cell = document.createElement("div");
+    const x = i % 16, y = Math.floor(i / 16);
+    cell.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      makerSnapshot();
+      const erase = e.button === 2;
+      const tool = erase ? "paint" : maker.tool;
+      paintAt(x, y, erase, tool);
+      down = tool === "paint" ? (erase ? "erase" : "paint") : null;
+    });
+    cell.addEventListener("mouseenter", () => {
+      if (down) paintAt(x, y, down === "erase", "paint");
+    });
+    grid.appendChild(cell);
+  }
+  grid.addEventListener("contextmenu", (e) => e.preventDefault());
+  addEventListener("mouseup", () => { down = null; });
+})();
+
+document.querySelectorAll("#makerParts button").forEach((b) => b.addEventListener("click", () => {
+  maker.part = b.dataset.part;
+  maker.frame = 0;
+  renderMaker();
+}));
+document.querySelectorAll("#makerTools button").forEach((b) => b.addEventListener("click", () => {
+  maker.tool = b.dataset.tool;
+  renderMaker();
+  if (maker.tool === "tip") say("* Click the pixel that should do the clicking.");
+}));
+$("makerUndo").addEventListener("click", () => {
+  if (!maker.undo.length) return;
+  maker.set = JSON.parse(maker.undo.pop());
+  maker.frame = Math.min(maker.frame, maker.set.loading.length - 1);
+  renderMaker();
+});
+addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "z" && !$("maker").classList.contains("hidden")
+      && document.activeElement.tagName !== "INPUT") {
+    e.preventDefault();
+    $("makerUndo").click();
+  }
+});
+$("makerClear").addEventListener("click", () => {
+  makerSnapshot();
+  makerSetRows(Array(16).fill(".".repeat(16)));
+  renderMaker();
+});
+$("makerFlip").addEventListener("click", () => {
+  makerSnapshot();
+  makerSetRows(makerGridRows().map((r) => r.split("").reverse().join("")));
+  const t = maker.set[tipKey()];
+  maker.set[tipKey()] = [15 - t[0], t[1]];
+  renderMaker();
+});
+$("makerStarter").addEventListener("click", () => {
+  if (!confirm("Start over from the WinUx Pixel cursors? (UNDO can bring your drawing back.)")) return;
+  makerSnapshot();
+  maker.set = JSON.parse(JSON.stringify(maker.starter));
+  maker.frame = 0;
+  renderMaker();
+});
+$("makerName").addEventListener("input", () => { maker.set.name = $("makerName").value; });
+
+async function openMaker() {
+  const box = $("maker");
+  if (!box.classList.contains("hidden")) return box.classList.add("hidden");
+  try {
+    if (!maker.loaded) {
+      const { set, starter } = await api("/api/cursor-set");
+      maker.starter = starter;
+      maker.set = set || JSON.parse(JSON.stringify(starter));
+      maker.loaded = true;
+    }
+  } catch (e) { return say(e.message, true); }
+  box.classList.remove("hidden");
+  renderMaker();
+  say("* Draw your cursors! Pick a color and click the squares. Right-click erases.");
+}
+$("openMaker").addEventListener("click", openMaker);
+
+$("makerSave").addEventListener("click", async () => {
+  try {
+    say("* Making your cursors...");
+    state = { ...state, ...(await api("/api/cursor-set", { method: "POST", body: { set: maker.set, wear: true } })) };
+    $("myCursorPic").src = "/gen/previews/cursors-custom.png?v=" + Date.now();
+    render();
+    say("You're wearing the cursors you drew! Move your mouse around.");
+  } catch (e) { say(e.message, true); }
+});
+
+$("makerShare").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(maker.set)], { type: "application/json" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = (maker.set.name || "my cursors").replace(/[^A-Za-z0-9 _-]+/g, "") + ".winuxcursor";
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 5000);
+  say("Saved as a .winuxcursor file. Send it to a friend!");
+});
+
+$("makerImport").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  try {
+    const doc = JSON.parse(await file.text());
+    if (doc.winuxCursors !== 1) throw new SyntaxError();
+    if (maker.set) makerSnapshot();
+    state = { ...state, ...(await api("/api/cursor-set", { method: "POST", body: { set: doc, wear: true } })) };
+    const { set, starter } = await api("/api/cursor-set");
+    maker.set = set;
+    maker.starter = starter;
+    maker.loaded = true;
+    maker.frame = 0;
+    $("myCursorPic").src = "/gen/previews/cursors-custom.png?v=" + Date.now();
+    render();
+    $("maker").classList.remove("hidden");
+    renderMaker();
+    say(`You're wearing "${set.name}"! UNDO in the cursor maker brings your old drawing back.`);
+  } catch (err) {
+    say(err instanceof SyntaxError ? "That isn't a WinUx cursor file." : err.message, true);
+  }
+});
 
 // ---------------------------------------------------------------- art -> theme
 

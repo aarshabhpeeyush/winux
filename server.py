@@ -835,7 +835,55 @@ import app_icons  # noqa: E402  (pixel-art app logos)
 
 GENERATED = ROOT / "generated"
 SPI_SETCURSORS = 0x0057
-CURSOR_SCHEMES = {"pixel": "WinUx Pixel", "pixel-accent": "WinUx Pixel Accent", "soul": "WinUx Soul"}
+CURSOR_SCHEMES = {"pixel": "WinUx Pixel", "pixel-accent": "WinUx Pixel Accent", "soul": "WinUx Soul",
+                  "custom": "WinUx Mine"}
+MY_CURSORS = BACKUPS / "my-cursors.json"
+
+
+def check_cursor_set(doc):
+    """Make sure a cursor set (yours, or one a friend sent) is safe and complete."""
+    if not isinstance(doc, dict) or doc.get("winuxCursors") != 1:
+        raise ValueError("That isn't a WinUx cursor file.")
+
+    def grid(g):
+        if not (isinstance(g, list) and len(g) == 16 and all(
+                isinstance(r, str) and len(r) == 16 and set(r) <= set(assets.CUSTOM_CHARS) for r in g)):
+            raise ValueError("A cursor drawing in that file is broken.")
+        return list(g)
+
+    def tip(t):
+        if not (isinstance(t, list) and len(t) == 2 and all(isinstance(n, int) and 0 <= n <= 15 for n in t)):
+            return [0, 0]
+        return list(t)
+
+    colors = doc.get("colors") or {}
+    if not all(re.fullmatch(r"#[0-9a-fA-F]{6}", str(colors.get(k, ""))) for k in "XWABC"):
+        raise ValueError("The colors in that cursor file are broken.")
+    loading = doc.get("loading")
+    if not (isinstance(loading, list) and 2 <= len(loading) <= 4):
+        raise ValueError("The loading cursor needs 2 to 4 frames.")
+    return {"winuxCursors": 1, "name": str(doc.get("name") or "My cursors")[:30],
+            "colors": {k: colors[k].lower() for k in "XWABC"},
+            "arrow": grid(doc.get("arrow")), "hand": grid(doc.get("hand")),
+            "loading": [grid(f) for f in loading],
+            "arrowTip": tip(doc.get("arrowTip")), "handTip": tip(doc.get("handTip")),
+            "loadingTip": tip(doc.get("loadingTip"))}
+
+
+def my_cursors():
+    try:
+        return check_cursor_set(json.loads(MY_CURSORS.read_text(encoding="utf-8")))
+    except (OSError, ValueError):
+        return None
+
+
+def save_my_cursors(doc, wear):
+    cset = check_cursor_set(doc)
+    MY_CURSORS.write_text(json.dumps(cset), encoding="utf-8")
+    assets.build_custom_cursors(cset)
+    if wear or cursors_state() == "custom":
+        set_cursors("custom")
+    return cset
 
 
 def restore_values(values):
@@ -870,8 +918,14 @@ def cursors_state():
 
 
 def set_cursors(scheme, accent=None):
+    if scheme == "custom":
+        cset = my_cursors()
+        if not cset:
+            raise ValueError("Draw your cursors in the CURSOR MAKER first.")
+        files = assets.build_custom_cursors(cset)
     if scheme in CURSOR_SCHEMES:
-        files = assets.build_cursors(scheme, accent or get_state_accent(), prefs()["soul"])
+        if scheme != "custom":
+            files = assets.build_cursors(scheme, accent or get_state_accent(), prefs()["soul"])
         for role, path in files.items():
             rset(CURSORS, role, path, winreg.REG_EXPAND_SZ)
         rset(CURSORS, "", CURSOR_SCHEMES[scheme], winreg.REG_SZ)
@@ -1068,6 +1122,12 @@ def which_app(sc):
         return "python"
     if "quest-completer" in exe or "quest completer" in name:
         return "controller"
+    if exe == "githubdesktop.exe" or name == "github desktop":
+        return "github"
+    if exe in ("unity hub.exe", "unity.exe") or name.startswith("unity"):
+        return "unity"
+    if exe.startswith("godot") or name.startswith("godot"):
+        return "godot"
     return None
 
 
@@ -1519,6 +1579,7 @@ def get_state():
         **ttb_state(),
         **taskbar_state(),
         "cursors": cursors_state(),
+        "myCursors": MY_CURSORS.is_file(),
         "sounds": sounds_state(),
         "icons": icons_state(),
         "appIcons": app_icons_state(),
@@ -1554,7 +1615,9 @@ def apply_settings(s):
 
     if "accent" in s:
         assets.build_previews(s["accent"], prefs()["soul"])
-    if s.get("cursors") in ("default", *CURSOR_SCHEMES):
+    if s.get("cursors") == "custom" and not my_cursors():
+        pass                                       # a theme from a friend with their own cursors: keep yours
+    elif s.get("cursors") in ("default", *CURSOR_SCHEMES):
         set_cursors(s["cursors"], s.get("accent"))
     elif "accent" in s and cursors_state() == "pixel-accent":
         set_cursors("pixel-accent", s["accent"])   # accent cursors follow your accent color
@@ -2084,6 +2147,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(export_theme(q.get("id", [""])[0]))
             except (OSError, ValueError):
                 self.send_json({"error": "Couldn't find that theme."}, 404)
+        elif url.path == "/api/cursor-set":
+            self.send_json({"set": my_cursors(), "starter": assets.cursor_starter(prefs()["soul"])})
         elif url.path == "/api/live":
             self.send_json(list_live())
         elif url.path == "/api/mods":
@@ -2177,6 +2242,12 @@ class Handler(BaseHTTPRequestHandler):
                 else:
                     return self.send_json({"error": "Unknown setting."}, 400)
                 self.send_json(prefs())
+            elif url.path == "/api/cursor-set":
+                try:
+                    save_my_cursors(body.get("set"), bool(body.get("wear")))
+                except ValueError as e:
+                    return self.send_json({"error": str(e)}, 400)
+                self.send_json(get_state())
             elif url.path == "/api/restore":
                 self.send_json(restore_original())
             elif url.path == "/api/widget":
@@ -2222,6 +2293,8 @@ def main():
     ensure_original_backup()
     assets.build_previews(get_state_accent(), prefs()["soul"])
     app_icons.preview_png(assets.OUT / "previews" / "app-icons.png", scale=2, gap=6)
+    if my_cursors():
+        assets.build_custom_cursors(my_cursors())
     assets.build_sounds()
     try:
         server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
