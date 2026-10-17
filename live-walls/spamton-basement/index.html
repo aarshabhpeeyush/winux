@@ -16,6 +16,12 @@
 const PIXEL = 4;
 const opts = { speed: 1, spamton: true };
 
+// tell WinUx (for achievements); does nothing if WinUx isn't running
+function winuxEvent(e) {
+  if (location.search.includes("snapshot")) return;
+  try { fetch("http://127.0.0.1:7777/event?e=" + e, { mode: "no-cors" }).catch(() => {}); } catch { /* fine */ }
+}
+
 const c = document.getElementById("c");
 const ctx = c.getContext("2d");
 let W, H, S, drips = [], screens = [];
@@ -45,6 +51,11 @@ const FONT = {
   S: "011100010001110", T: "111010010010010", U: "101101101101111", W: "101101111111101", Y: "101101010010010",
   "!": "010010010000010", "[": "110100100100110", "]": "011001001001011", "$": "011110010011110", " ": "000000000000000",
   "1": "010110010010111", "9": "111101111001111", "%": "101001010100101", "0": "111101101101111",
+  M: "101111111101101", V: "101101101101010", X: "101101010101101", J: "001001001101010", Z: "111001010100111",
+  Q: "010101101110011", "?": "110001010000010", ".": "000000000000010", ",": "000000000010100", "'": "010010000000000",
+  "*": "000101010101000", ">": "100010001010100", "-": "000000111000000", ":": "000010000010000",
+  "2": "110001010100111", "3": "110001010001110", "4": "101101111001001", "5": "111100110001110",
+  "6": "011100110101010", "7": "111001010010010", "8": "010101010101010",
 };
 function text(str, x, y, s, col) {
   ctx.fillStyle = col;
@@ -188,9 +199,77 @@ function frame(now) {
   }
   ctx.globalAlpha = 1;
 
+  drawShop(dt);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+
+// ---------- SPAMTON'S [[SHOP]]: click the dumpster (or Spamton) to open it
+const SHOP_ITEMS = [
+  { name: "[[ACHIEVEMENT]]", price: "1997 KROMER" },
+  { name: "LEAVE", price: "" },
+];
+const HELLO = ["HEY EVERY BUDDY!!", "IT'S [[ME]], SPAMTON G. SPAMTON!", "[[NOW'S YOUR CHANCE]]!!", "WHAT'LL IT BE, [[KID]]?"];
+const SOLD = ["YOU JUST GOT [[SCAMMED]]!!", "NO REFUNDS!!", "PLEASURE DOING [[BUSINESS]]!", "[[HEAVEN]] SAKES, WHAT A DEAL!"];
+let shop = null;   // { sel, hits: [[x, y, w, h, i]] }
+
+function openShop() {
+  shop = { sel: 0, hits: [] };
+  peek = 1; peekT = 99;            // Spamton pops out and stays
+  said = pick(HELLO);
+}
+function closeShop() {
+  shop = null;
+  said = "COME BACK SOON!!";
+  peek = 4; peekT = rnd(10, 18);   // and drops back into the bin
+}
+function buy(i) {
+  if (SHOP_ITEMS[i].name === "LEAVE") return closeShop();
+  said = pick(SOLD);
+  shop.bought = 2.5;
+  winuxEvent("scammed");
+}
+
+function drawShop(dt) {
+  if (!shop) return;
+  peek = 1;                        // keep Spamton up while you shop
+  if (shop.bought) shop.bought = Math.max(0, shop.bought - dt);
+  const fits = textWidth("> [[ACHIEVEMENT]]   1997 KROMER", 2 * S) + 32 * S <= W - 16 * S;
+  const ts = fits ? 2 * S : S, line = 9 * ts;           // smaller text on small screens
+  const bw = Math.min(W - 16 * S, textWidth("> [[ACHIEVEMENT]]   1997 KROMER", ts) + 16 * ts);
+  const bh = 4 * line + 4 * ts;
+  const bx = Math.round(W / 2 - bw / 2), by = Math.round(H - bh - 10 * S);
+  R(bx - 3 * S, by - 3 * S, bw + 6 * S, bh + 6 * S, "#ffffff");
+  R(bx, by, bw, bh, "#000000");
+  text("SPAMTON'S [[SHOP]]", bx + 6 * ts, by + 4 * ts, ts, "#ffe24a");
+  shop.hits = [];
+  SHOP_ITEMS.forEach((it, i) => {
+    const y = by + 4 * ts + (i + 1) * line;
+    const on = shop.sel === i;
+    text((on ? "> " : "  ") + it.name, bx + 6 * ts, y, ts, on ? "#ffe24a" : "#ffffff");
+    if (it.price) text(it.price, bx + bw - 6 * ts - textWidth(it.price, ts), y, ts, "#ff4fa3");
+    shop.hits.push([bx, y - 2 * ts, bw, line, i]);
+  });
+  if (shop.bought) text("* YOU GOT: NOTHING.", bx + 6 * ts, by + 4 * ts + 3 * line, ts, "#8a9ab8");
+}
+
+c.addEventListener("mousedown", (e) => {
+  const x = e.clientX / PIXEL, y = e.clientY / PIXEL;
+  if (shop) {
+    const hit = shop.hits.find(([hx, hy, hw, hh]) => x >= hx && x <= hx + hw && y >= hy && y <= hy + hh);
+    if (hit) { shop.sel = hit[4]; buy(hit[4]); }
+    return;
+  }
+  // the dumpster (and the space above it where Spamton pops out)
+  const groundY = Math.round(H * 0.75), dx = W * 0.5, dw = 80 * S, dtop = groundY - 36 * S + 6 * S;
+  if (opts.spamton && Math.abs(x - dx) < dw / 2 + 4 * S && y > dtop - 70 * S && y < groundY + 8 * S) openShop();
+});
+addEventListener("keydown", (e) => {
+  if (!shop) return;
+  if (e.key === "ArrowUp" || e.key === "ArrowDown") shop.sel = (shop.sel + 1) % SHOP_ITEMS.length;
+  else if (e.key === "Enter" || e.key === "z" || e.key === "Z") buy(shop.sel);
+  else if (e.key === "Escape" || e.key === "x" || e.key === "X") closeShop();
+});
 
 function livelyPropertyListener(name, val) {
   if (name in opts) opts[name] = val;

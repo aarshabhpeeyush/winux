@@ -53,12 +53,14 @@ LIST = {
     "logo": ("secret", "STOP CLICKING", "Click the WinUx logo 10 times.", "!", count("logo")),
     "rainbow": ("secret", "ALL SEVEN SOULS", "Try every soul color.", "❖", many("souls", 7)),
     "late-sans": ("secret", "IT'S LATE, KID", "Fight Sans after midnight.", "☾", count("sans-late")),
-    "completionist": ("secret", "COMPLETIONIST", "Get every other achievement.", "♛",
-                      lambda s: all(k in s["unlocked"] for k in LIST if k != "completionist")),
+    "scammed": ("secret", "YOU JUST GOT [[SCAMMED]]", "Buy an achievement at Spamton's shop.", "$", count("scammed")),
+    "completionist": ("secret", "COMPLETIONIST", "Get every other achievement (Spamton's doesn't count).", "♛",
+                      lambda s: all(k in s["unlocked"] for k in LIST if k not in ("completionist", "scammed"))),
 }
 
 # events that walls / Rainmeter / the folder menu may send without the panel's password
-PUBLIC_EVENTS = {"sans-start", "sans-lose", "sans-win", "wall-play", "music", "folder", "dog-pet", "timer-win"}
+PUBLIC_EVENTS = {"sans-start", "sans-lose", "sans-win", "wall-play", "music", "folder", "dog-pet", "timer-win",
+                 "scammed"}
 PANEL_EVENTS = PUBLIC_EVENTS | {"share", "logo"}
 
 
