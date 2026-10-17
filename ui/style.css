@@ -480,3 +480,15 @@ input[type=text]:focus, select:focus { outline: none; border-color: var(--select
   .menu-sep { display: none; }
   input[type=text] { min-width: 0; width: 100%; }
 }
+
+/* soul color picker */
+.souls { display: flex; flex-wrap: wrap; gap: 10px; }
+.soul-pick {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: var(--panel); border: 3px solid var(--faint); padding: 6px 10px; cursor: pointer; min-width: 92px;
+}
+.soul-pick:hover { border-color: var(--select); }
+.soul-pick.on { border-color: var(--line); outline: 3px solid var(--select); outline-offset: 2px; }
+.soul-heart { font-size: 30px; line-height: 1; }
+.soul-name { font-size: 16px; color: var(--muted); }
+.soul-pick.on .soul-name { color: var(--line); }

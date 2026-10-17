@@ -361,7 +361,7 @@ def write_if_changed(p, data):
             raise
 
 
-def build_cursors(scheme, accent="#ffe600"):
+def build_cursors(scheme, accent="#ffe600", soul="#ff1a1a"):
     """Write one cursor scheme's files and return {Windows cursor role: path}."""
     folder = OUT / "cursors" / scheme
     folder.mkdir(parents=True, exist_ok=True)
@@ -382,7 +382,9 @@ def build_cursors(scheme, accent="#ffe600"):
     tag = "-" + accent.lstrip("#") if scheme == "pixel-accent" else ""
     star = [_cursor_file(f, star_pal, (0.5, 0.5)) for f in STAR_FRAMES]
     if scheme == "soul":
-        files["Arrow"] = save("soul.cur", _cursor_file(HEART, {"X": BLACK, "W": RED}, (0.5, 0.45)))
+        # the soul cursor is your soul's color (the name changes so Windows doesn't reuse an old one)
+        soul_tag = "" if soul.lower() == "#ff1a1a" else "-" + soul.lstrip("#").lower()
+        files["Arrow"] = save(f"soul{soul_tag}.cur", _cursor_file(HEART, {"X": BLACK, "W": px.hex_rgb(soul)}, (0.5, 0.45)))
         files["Hand"] = save("soul-yellow.cur", _cursor_file(HEART, {"X": BLACK, "W": YELLOW}, (0.5, 0.45)))
         files["AppStarting"] = save("save-star.ani", px.ani(star, 7))
     else:
@@ -443,7 +445,7 @@ def _strip(tiles, scale=4, gap=8, bg=(0, 0, 0, 0)):
     return px.png(W, H, bytes(img))
 
 
-def build_previews(accent="#ffe600"):
+def build_previews(accent="#ffe600", soul="#ff1a1a"):
     folder = OUT / "previews"
     folder.mkdir(parents=True, exist_ok=True)
     white = {"X": BLACK, "W": WHITE, "S": YELLOW}
@@ -452,7 +454,7 @@ def build_previews(accent="#ffe600"):
     sets = {
         "cursors-pixel": [(ARROW, white), (HAND, white), (IBEAM, white), (STAR_FRAMES[2], star)],
         "cursors-pixel-accent": [(ARROW, acc), (HAND, acc), (IBEAM, white), (STAR_FRAMES[2], star)],
-        "cursors-soul": [(HEART, {"X": BLACK, "W": RED}), (HEART, {"X": BLACK, "W": YELLOW}), (IBEAM, white), (STAR_FRAMES[2], star)],
+        "cursors-soul": [(HEART, {"X": BLACK, "W": px.hex_rgb(soul)}), (HEART, {"X": BLACK, "W": YELLOW}), (IBEAM, white), (STAR_FRAMES[2], star)],
         "icons-pixel": [(rows, ICON_PALETTE) for rows in DESKTOP_ICONS.values()],
     }
     for name, tiles in sets.items():

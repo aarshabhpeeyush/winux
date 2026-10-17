@@ -190,6 +190,7 @@ for (const cb of document.querySelectorAll("#tab-colors input[type=checkbox]")) 
 
 function render() {
   renderVersion();
+  renderSouls();
   $("lockMatch").checked = !!state.lockScreen;
   document.documentElement.style.setProperty("--accent", state.accent);
   $("nowAccent").style.background = state.accent;
@@ -428,6 +429,33 @@ $("tbUseAccent").addEventListener("click", () =>
   apply({ tbColor: state.accent, tbOpacity: Math.max(state.tbOpacity, 20) }, "The taskbar now matches your accent color.")
 );
 
+// your soul color: seven hearts, one per human soul
+function renderSouls() {
+  const box = $("souls");
+  if (!box || !state.souls) return;
+  document.documentElement.style.setProperty("--soul", state.soul || "#ff1a1a");
+  box.innerHTML = "";
+  for (const [color, trait] of Object.entries(state.souls)) {
+    const b = document.createElement("button");
+    b.className = "soul-pick" + (state.soul === color ? " on" : "");
+    b.title = trait;
+    b.innerHTML = `<span class="soul-heart">♥</span><span class="soul-name"></span>`;
+    b.querySelector(".soul-heart").style.color = color;
+    b.querySelector(".soul-name").textContent = trait;
+    b.addEventListener("click", async () => {
+      try {
+        await api("/api/pref", { method: "POST", body: { key: "soul", value: color } });
+        state.soul = color;
+        renderSouls();
+        const pic = document.querySelector('.look[data-val="soul"] img');
+        if (pic) pic.src = "/gen/previews/cursors-soul.png?v=" + Date.now();
+        say(`Your soul shines with ${trait.toUpperCase()}.`);
+      } catch (err) { say(err.message, true); }
+    });
+    box.appendChild(b);
+  }
+}
+
 function renderVersion() {
   if (state.version) $("version").textContent = "v" + state.version;
 }
@@ -611,7 +639,7 @@ function renderJingles() {
   if (state.customJingle) box.appendChild(jingleButton("custom", "Your own", "/jingle-custom"));
   const up = document.createElement("label");
   up.className = "look";
-  up.innerHTML = `<div class="look-pic plain">+ .WAV</div><div class="look-name">Your own</div><input type="file" accept=".wav" hidden>`;
+  up.innerHTML = `<div class="look-pic plain">+ WAV/MP3</div><div class="look-name">Your own</div><input type="file" accept=".wav,.mp3" hidden>`;
   up.querySelector("input").addEventListener("change", async (e) => {
     const file = e.target.files[0];
     e.target.value = "";

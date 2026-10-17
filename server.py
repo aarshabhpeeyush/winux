@@ -756,7 +756,7 @@ def sync_widgets(accent=None):
         "[Variables]\n"
         "; Written by WinUx - change colors in the WinUx panel.\n"
         f"Accent={r},{g},{b}\nLine=255,255,255\nBg=0,0,0,235\nMuted=139,143,153\n"
-        f"Soul=255,26,26\nWinUxDir={ROOT}\n", encoding="utf-8")
+        f"Soul={','.join(str(c) for c in hex_to_rgb(prefs()['soul']))}\nWinUxDir={ROOT}\n", encoding="utf-8")
 
 
 def get_state_accent():
@@ -871,7 +871,7 @@ def cursors_state():
 
 def set_cursors(scheme, accent=None):
     if scheme in CURSOR_SCHEMES:
-        files = assets.build_cursors(scheme, accent or get_state_accent())
+        files = assets.build_cursors(scheme, accent or get_state_accent(), prefs()["soul"])
         for role, path in files.items():
             rset(CURSORS, role, path, winreg.REG_EXPAND_SZ)
         rset(CURSORS, "", CURSOR_SCHEMES[scheme], winreg.REG_SZ)
@@ -1186,15 +1186,28 @@ def set_app_icons(pack):
 
 # ---------------------------------------------------------------- WinUx's own preferences
 PREFS = BACKUPS / "prefs.json"
-PREF_DEFAULTS = {"startupJingle": True, "tray": True, "lastTheme": None, "lockScreen": False, "jingle": "winux"}
-CUSTOM_JINGLE = BACKUPS / "custom-jingle.wav"
+PREF_DEFAULTS = {"startupJingle": True, "tray": True, "lastTheme": None, "lockScreen": False, "jingle": "winux",
+                 "soul": "#ff1a1a"}
+# the seven human souls: color -> trait
+SOULS = {"#ff1a1a": "Determination", "#ffa500": "Bravery", "#ffff00": "Justice", "#00c000": "Kindness",
+         "#42fcff": "Patience", "#003cff": "Integrity", "#d535d9": "Perseverance"}
+JINGLE_TYPES = {".wav": "audio/wav", ".mp3": "audio/mpeg"}
+
+
+def custom_jingle():
+    """Your own startup sound (.wav or .mp3), if you added one."""
+    for ext in JINGLE_TYPES:
+        p = BACKUPS / f"custom-jingle{ext}"
+        if p.is_file():
+            return p
+    return None
 
 
 def jingle_file():
     """The startup sound to play: the chosen built-in one, or your own .wav."""
     pick = prefs()["jingle"]
-    if pick == "custom" and CUSTOM_JINGLE.is_file():
-        return CUSTOM_JINGLE
+    if pick == "custom" and custom_jingle():
+        return custom_jingle()
     name = "startup.wav" if pick == "winux" or pick not in assets.JINGLES else f"startup-{pick}.wav"
     return GENERATED / "sounds" / name
 
@@ -1219,10 +1232,17 @@ def play_startup_jingle():
 
     def go():
         time.sleep(4)
-        try:
-            winsound.PlaySound(str(jingle_file()), winsound.SND_FILENAME)
-        except RuntimeError:
-            pass
+        mci = ctypes.windll.winmm.mciSendStringW
+        f = jingle_file()
+        kind = "mpegvideo" if f.suffix.lower() == ".mp3" else "waveaudio"
+        if mci(f'open "{f}" type {kind} alias winuxjingle', None, 0, None) == 0:
+            mci("play winuxjingle wait", None, 0, None)
+            mci("close winuxjingle", None, 0, None)
+        else:
+            try:
+                winsound.PlaySound(str(f), winsound.SND_FILENAME)
+            except RuntimeError:
+                pass
     threading.Thread(target=go, daemon=True).start()
 
 
@@ -1280,6 +1300,18 @@ def match_lockscreen():
 def match_lockscreen_later():
     import threading
     threading.Thread(target=lambda: match_lockscreen(), daemon=True).start()
+
+
+# ---------------------------------------------------------------- your soul color
+def set_soul(color):
+    """Every heart in WinUx turns your soul's color: the soul cursor, widgets, the panel."""
+    set_pref("soul", color)
+    assets.build_previews(get_state_accent(), color)
+    if cursors_state() == "soul":
+        set_cursors("soul")
+    if RAINMETER.is_file():
+        sync_widgets()
+        rm_bang("!RefreshGroup", "WinUx")
 
 
 # ---------------------------------------------------------------- tray icon + Ctrl+Alt+T
@@ -1464,8 +1496,10 @@ def get_state():
         "version": VERSION,
         "lockScreen": prefs()["lockScreen"],
         "jingle": prefs()["jingle"],
+        "soul": prefs()["soul"],
+        "souls": SOULS,
         "jingleChoices": {k: n for k, (n, _) in assets.JINGLES.items()},
-        "customJingle": CUSTOM_JINGLE.is_file(),
+        "customJingle": bool(custom_jingle()),
         "win11": WIN11,
         "webview2": webview2_installed(),
         "appsDark": rget(PERSONALIZE, "AppsUseLightTheme", 1) == 0,
@@ -1519,7 +1553,7 @@ def apply_settings(s):
     taskbar_write(s)
 
     if "accent" in s:
-        assets.build_previews(s["accent"])
+        assets.build_previews(s["accent"], prefs()["soul"])
     if s.get("cursors") in ("default", *CURSOR_SCHEMES):
         set_cursors(s["cursors"], s.get("accent"))
     elif "accent" in s and cursors_state() == "pixel-accent":
@@ -1989,9 +2023,10 @@ class Handler(BaseHTTPRequestHandler):
             ctype = {".png": "image/png", ".gif": "image/gif"}.get(p.suffix.lower(), "image/jpeg")
             self.send_file(p, ctype)
         elif url.path == "/jingle-custom":
-            if not CUSTOM_JINGLE.is_file():
+            f = custom_jingle()
+            if not f:
                 return self.send_json({"error": "not found"}, 404)
-            self.send_file(CUSTOM_JINGLE, "audio/wav")
+            self.send_file(f, JINGLE_TYPES[f.suffix.lower()])
         elif url.path.startswith("/livewall/"):
             # a file inside one of our web wallpapers (pictures, music.mp3...), so
             # things next to index.html load in previews just like in Lively
@@ -2071,12 +2106,16 @@ class Handler(BaseHTTPRequestHandler):
                 kind = self.headers.get("X-Kind")
                 if kind == "jingle":
                     n_bytes = int(self.headers.get("Content-Length", 0))
-                    if ext != ".wav" or n_bytes > 5 * 1024 * 1024:
-                        return self.send_json({"error": "Use a .wav file under 5 MB."}, 400)
+                    if ext not in JINGLE_TYPES or n_bytes > 8 * 1024 * 1024:
+                        return self.send_json({"error": "Use a .wav or .mp3 file under 8 MB."}, 400)
                     data = self.rfile.read(n_bytes)
-                    if data[:4] != b"RIFF" or data[8:12] != b"WAVE":
-                        return self.send_json({"error": "That isn't a real .wav file."}, 400)
-                    CUSTOM_JINGLE.write_bytes(data)
+                    is_wav = data[:4] == b"RIFF" and data[8:12] == b"WAVE"
+                    is_mp3 = data[:3] == b"ID3" or (len(data) > 1 and data[0] == 0xFF and data[1] & 0xE0 == 0xE0)
+                    if not (is_wav if ext == ".wav" else is_mp3):
+                        return self.send_json({"error": f"That isn't a real {ext} file."}, 400)
+                    for old in JINGLE_TYPES:
+                        (BACKUPS / f"custom-jingle{old}").unlink(missing_ok=True)
+                    (BACKUPS / f"custom-jingle{ext}").write_bytes(data)
                     set_pref("jingle", "custom")
                     return self.send_json(prefs())
                 if kind == "live":
@@ -2125,9 +2164,14 @@ class Handler(BaseHTTPRequestHandler):
                     set_pref(key, bool(body.get("value")))
                     if body.get("value"):
                         match_lockscreen_later()
+                elif key == "soul":
+                    value = str(body.get("value", "")).lower()
+                    if value not in SOULS:
+                        return self.send_json({"error": "That isn't one of the seven souls."}, 400)
+                    set_soul(value)
                 elif key == "jingle":
                     value = str(body.get("value", ""))
-                    if value not in assets.JINGLES and not (value == "custom" and CUSTOM_JINGLE.is_file()):
+                    if value not in assets.JINGLES and not (value == "custom" and custom_jingle()):
                         return self.send_json({"error": "Unknown jingle."}, 400)
                     set_pref(key, value)
                 else:
@@ -2176,7 +2220,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     ensure_original_backup()
-    assets.build_previews(get_state_accent())
+    assets.build_previews(get_state_accent(), prefs()["soul"])
     app_icons.preview_png(assets.OUT / "previews" / "app-icons.png", scale=2, gap=6)
     assets.build_sounds()
     try:
