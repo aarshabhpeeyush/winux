@@ -194,6 +194,7 @@ function render() {
   renderSouls();
   $("lockMatch").checked = !!state.lockScreen;
   $("folderMenu").checked = !!state.folderMenu;
+  renderSaver();
   $("coloredFolders").textContent = state.coloredFolders
     ? `* You've colored ${state.coloredFolders} folder${state.coloredFolders === 1 ? "" : "s"}.` : "";
   $("resetFolders").classList.toggle("hidden", !state.coloredFolders);
@@ -483,6 +484,38 @@ $("resetFolders").addEventListener("click", async () => {
     render();
     say(`${r.reset} folder${r.reset === 1 ? " is" : "s are"} back to normal.`);
   } catch (err) { say(err.message, true); }
+});
+
+// pixel screensaver
+function renderSaver() {
+  const sel = $("saverTime");
+  if (!sel.options.length && state.saverMinutes) {
+    for (const m of state.saverMinutes) sel.add(new Option(m ? `After ${m} minute${m === 1 ? "" : "s"}` : "Off", m));
+  }
+  sel.value = String(state.saver || 0);
+  document.querySelectorAll("#saverScenes button").forEach((b) => b.classList.toggle("on", b.dataset.scene === state.saverScene));
+  $("saverNoEdge").classList.toggle("hidden", state.saverOk !== false);
+  const src = `/saver?preview=1&scene=${state.saverScene || "random"}&soul=${encodeURIComponent(state.soul || "#ff1a1a")}`;
+  if ($("saverPreview").dataset.src !== src) { $("saverPreview").dataset.src = src; $("saverPreview").src = src; }
+}
+async function setSaverPref(key, value, msg) {
+  try {
+    state = { ...state, ...(await api("/api/pref", { method: "POST", body: { key, value } })) };
+    renderSaver();
+    say(msg);
+  } catch (e) { say(e.message, true); }
+}
+$("saverTime").addEventListener("change", (e) => {
+  const m = Number(e.target.value);
+  setSaverPref("saver", m, m ? `The screensaver starts after ${m} minute${m === 1 ? "" : "s"} away.` : "Screensaver off.");
+});
+document.querySelectorAll("#saverScenes button").forEach((b) => b.addEventListener("click", () =>
+  setSaverPref("saverScene", b.dataset.scene, `Screensaver: ${b.textContent.toLowerCase()}.`)));
+$("saverTest").addEventListener("click", async () => {
+  try {
+    await api("/api/saver-test", { method: "POST" });
+    say("* Move the mouse or press a key to come back.");
+  } catch (e) { say(e.message, true); }
 });
 
 // lock screen follows the wallpaper

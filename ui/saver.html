@@ -1,0 +1,191 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>WinUx screensaver</title>
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; cursor: none; }
+  canvas { width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// WinUx pixel screensaver. WinUx opens this full screen after you've been away
+// for a while and closes it the moment you move the mouse or press a key.
+//   ?scene=soul|stars|dog|save|random   ?soul=#ff1a1a
+const q = new URLSearchParams(location.search);
+const SCENES = ["soul", "stars", "dog", "save"];
+let scene = q.get("scene") || "random";
+const SOUL = /^#[0-9a-f]{6}$/i.test(q.get("soul") || "") ? q.get("soul") : "#ff1a1a";
+const SOUL_COLORS = ["#ff1a1a", "#ffa500", "#ffff00", "#00c000", "#42fcff", "#003cff", "#d535d9"];
+const PIXEL = q.has("preview") ? 1 : 4;   // the small preview in the panel uses finer pixels
+
+const c = document.getElementById("c");
+const ctx = c.getContext("2d");
+let W, H, S;
+function resize() {
+  W = c.width = Math.ceil(innerWidth / PIXEL);
+  H = c.height = Math.ceil(innerHeight / PIXEL);
+  S = Math.max(1, Math.round(H / 200));
+  reset();
+}
+const R = (x, y, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+// the soul, as pixels
+const HEART = [
+  ".XX.XX.",
+  "XXXXXXX",
+  "XXXXXXX",
+  "XXXXXXX",
+  ".XXXXX.",
+  "..XXX..",
+  "...X...",
+];
+function heart(x, y, size, col) {
+  HEART.forEach((row, j) => [...row].forEach((ch, i) => { if (ch === "X") R(x + i * size, y + j * size, size, size, col); }));
+}
+// the little 5-point save star
+function star(x, y, size, col) {
+  const s = size;
+  R(x - s / 2, y - 3 * s, s, 6 * s, col);
+  R(x - 3 * s, y - s / 2, 6 * s, s, col);
+  R(x - 1.5 * s, y - 1.5 * s, 3 * s, 3 * s, col);
+}
+function text(str, x, y, px, col, align = "left") {
+  ctx.font = `${px}px VT323, monospace`;
+  ctx.textAlign = align;
+  ctx.textBaseline = "top";
+  ctx.fillStyle = col;
+  ctx.fillText(str, Math.round(x), Math.round(y));
+}
+
+// --- scene state
+let bounce, stars, zs, sparks, t = 0, sceneT = 0;
+const dog = new Image();
+dog.src = "/res/dog-sleep.png";
+
+function reset() {
+  bounce = { x: rnd(0, W - 60 * S), y: rnd(0, H - 30 * S), vx: 22 * S, vy: 16 * S, color: 0 };
+  stars = Array.from({ length: 160 }, () => ({ x: rnd(0, W), y: rnd(0, H), z: rnd(0.2, 1), tw: rnd(0, 6) }));
+  zs = [];
+  sparks = [];
+}
+addEventListener("resize", resize);
+resize();
+
+function drawSoul(dt) {
+  // a soul bouncing around like an old DVD logo; it changes color on every wall it hits
+  const b = bounce, size = 3 * S, w = 62 * S, h = 26 * S;
+  b.x += b.vx * dt;
+  b.y += b.vy * dt;
+  let hit = false;
+  if (b.x < 0 || b.x + w > W) { b.vx *= -1; b.x = Math.max(0, Math.min(W - w, b.x)); hit = true; }
+  if (b.y < 0 || b.y + h > H) { b.vy *= -1; b.y = Math.max(0, Math.min(H - h, b.y)); hit = true; }
+  if (hit) {
+    b.color = (b.color + 1) % SOUL_COLORS.length;
+    for (let i = 0; i < 12; i++) sparks.push({ x: b.x + w / 2, y: b.y + h / 2, vx: rnd(-40, 40) * S, vy: rnd(-40, 40) * S, life: 1 });
+  }
+  const col = b.color === 0 ? SOUL : SOUL_COLORS[b.color];
+  heart(b.x, b.y + 2 * S, size, col);
+  text("WinUx", b.x + 24 * S, b.y, 16 * S, "#fff");
+}
+
+function drawStars(dt) {
+  // the Dark World sky: stars drifting by, a soul floating in the middle
+  for (const s of stars) {
+    s.x -= s.z * 14 * S * dt;
+    if (s.x < -2) { s.x = W + 2; s.y = rnd(0, H); }
+    const a = 0.5 + 0.5 * Math.sin(t * 2 + s.tw);
+    ctx.globalAlpha = 0.3 + 0.7 * a * s.z;
+    if (s.z > 0.85) star(s.x, s.y, Math.max(1, S * 0.6), "#ffe600");
+    else R(s.x, s.y, s.z > 0.5 ? S : 1, s.z > 0.5 ? S : 1, "#fff");
+  }
+  ctx.globalAlpha = 1;
+  const y = H / 2 - 10 * S + Math.sin(t * 1.3) * 6 * S;
+  heart(W / 2 - 10 * S, y, 3 * S, SOUL);
+}
+
+function drawDog(dt) {
+  // the Annoying Dog fell asleep on your screen
+  const nw = dog.naturalWidth || 51, nh = dog.naturalHeight || 45;
+  const scale = Math.max(1, Math.floor((H * 0.22) / nh));   // whole pixels, about a fifth of the screen tall
+  const dw = nw * scale, dh = nh * scale;
+  const x = Math.round(W / 2 - dw / 2), y = Math.round(H * 0.68 - dh);
+  R(0, y + dh - 2 * S, W, 1, "#222");
+  if (dog.complete && dog.naturalWidth) ctx.drawImage(dog, Math.round(x), Math.round(y), dw, dh);
+  if (Math.random() < dt * 0.9) zs.push({ x: x + dw * 0.3, y: y + dh * 0.05, life: 0, big: Math.random() < 0.5 });
+  for (const z of zs) {
+    z.life += dt;
+    z.y -= 10 * S * dt;
+    z.x += Math.sin(z.life * 2) * 3 * S * dt;
+    ctx.globalAlpha = Math.max(0, 1 - z.life / 3.5);
+    text(z.big ? "Z" : "z", z.x, z.y, (z.big ? 14 : 10) * S, "#fff");
+  }
+  ctx.globalAlpha = 1;
+  zs = zs.filter((z) => z.life < 3.5);
+  text("* The dog is guarding your PC.", W / 2, H * 0.74, 10 * S, "#fff", "center");
+}
+
+function drawSave(dt) {
+  // a save point, glowing
+  const x = W / 2, y = H * 0.42;
+  const pulse = 0.5 + 0.5 * Math.sin(t * 3);
+  ctx.globalAlpha = 0.15 + 0.15 * pulse;
+  for (let r = 18; r > 4; r -= 3) { ctx.beginPath(); ctx.fillStyle = "#ffe600"; ctx.arc(x, y, r * S * (0.9 + 0.1 * pulse), 0, 7); ctx.fill(); }
+  ctx.globalAlpha = 1;
+  star(x, y, 2 * S + Math.round(pulse), "#ffe600");
+  if (Math.random() < dt * 4) sparks.push({ x: x + rnd(-12, 12) * S, y: y + rnd(-12, 12) * S, vx: 0, vy: -8 * S, life: 1 });
+  text("* (The screen is saving.)", x, H * 0.62, 10 * S, "#fff", "center");
+  text("* It fills you with DETERMINATION.", x, H * 0.62 + 12 * S, 10 * S, "#fff", "center");
+}
+
+const DRAW = { soul: drawSoul, stars: drawStars, dog: drawDog, save: drawSave };
+let current = scene === "random" ? SCENES[Math.floor(Math.random() * SCENES.length)] : (DRAW[scene] ? scene : "soul");
+
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  t += dt;
+  sceneT += dt;
+  if (scene === "random" && sceneT > 60) {       // a new scene every minute
+    sceneT = 0;
+    current = SCENES[(SCENES.indexOf(current) + 1) % SCENES.length];
+    reset();
+  }
+  R(0, 0, W, H, "#000");
+  DRAW[current](dt);
+  for (const p of sparks) {
+    p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt;
+    ctx.globalAlpha = Math.max(0, p.life);
+    R(p.x, p.y, S, S, "#fff");
+  }
+  ctx.globalAlpha = 1;
+  sparks = sparks.filter((p) => p.life > 0);
+  // the time, drifting a bit every minute so it never burns into the screen
+  const d = new Date();
+  const m = d.getMinutes();
+  const clock = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  text(clock, 6 * S + (m % 7) * 3 * S, 4 * S + (m % 5) * 2 * S, 12 * S, "#555");
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// back up WinUx's own check: if this page feels the mouse or keyboard, ask WinUx to close it
+if (!q.has("preview")) {
+  const opened = Date.now();
+  let from = null;
+  const wake = () => { if (Date.now() - opened > 1500) fetch("/saver-close").catch(() => {}); };
+  addEventListener("keydown", wake);
+  addEventListener("mousedown", wake);
+  addEventListener("mousemove", (e) => {
+    from = from || [e.screenX, e.screenY];
+    if (Math.abs(e.screenX - from[0]) + Math.abs(e.screenY - from[1]) > 8) wake();
+  });
+}
+</script>
+</body>
+</html>

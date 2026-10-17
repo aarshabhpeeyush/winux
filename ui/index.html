@@ -82,6 +82,21 @@
       <section class="tab box hidden" id="tab-wallpaper">
         <h2>WALLPAPER</h2>
         <label class="toggle"><input type="checkbox" id="lockMatch"><span>Lock screen matches my wallpaper <small class="dim">(live ones too, as a snapshot)</small></span></label>
+        <div class="label">* Pixel screensaver <small class="dim">(starts when you're away; move the mouse to come back)</small></div>
+        <div class="row">
+          <select id="saverTime"></select>
+          <div class="seg" id="saverScenes">
+            <button data-scene="random">RANDOM</button>
+            <button data-scene="soul">BOUNCING SOUL</button>
+            <button data-scene="stars">DARK WORLD STARS</button>
+            <button data-scene="dog">SLEEPING DOG</button>
+            <button data-scene="save">SAVE POINT</button>
+          </div>
+          <button class="btn small" id="saverTest">PREVIEW</button>
+        </div>
+        <iframe class="saver-preview" id="saverPreview" tabindex="-1" title="Screensaver preview"></iframe>
+        <p class="hint small hidden" id="saverNoEdge">* The screensaver needs Microsoft Edge.</p>
+
         <div class="row">
           <label class="btn">
             + ADD IMAGE

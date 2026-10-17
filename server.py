@@ -1252,7 +1252,9 @@ def set_app_icons(pack):
 # ---------------------------------------------------------------- WinUx's own preferences
 PREFS = BACKUPS / "prefs.json"
 PREF_DEFAULTS = {"startupJingle": True, "tray": True, "lastTheme": None, "lockScreen": False, "jingle": "winux",
-                 "soul": "#ff1a1a"}
+                 "soul": "#ff1a1a", "saver": 0, "saverScene": "random"}
+SAVER_MINUTES = (0, 1, 3, 5, 10, 15, 30)
+SAVER_SCENES = ("random", "soul", "stars", "dog", "save")
 # the seven human souls: color -> trait
 SOULS = {"#ff1a1a": "Determination", "#ffa500": "Bravery", "#ffff00": "Justice", "#00c000": "Kindness",
          "#42fcff": "Patience", "#003cff": "Integrity", "#d535d9": "Perseverance"}
@@ -1323,6 +1325,88 @@ def edge_exe():
         if p.is_file():
             return p
     return None
+
+
+# ---------------------------------------------------------------- pixel screensaver
+# After you've been away for a while, WinUx opens its screensaver page full
+# screen (Edge kiosk, its own profile) and closes it as soon as you touch
+# the mouse or keyboard. It waits if a video or game is full screen.
+
+class LASTINPUTINFO(ctypes.Structure):
+    _fields_ = [("cbSize", ctypes.c_uint), ("dwTime", ctypes.c_uint)]
+
+
+def last_input():
+    info = LASTINPUTINFO(ctypes.sizeof(LASTINPUTINFO), 0)
+    ctypes.windll.user32.GetLastInputInfo(ctypes.byref(info))
+    return info.dwTime
+
+
+def idle_ms():
+    return (ctypes.windll.kernel32.GetTickCount() - last_input()) & 0xFFFFFFFF
+
+
+def saver_blocked():
+    """True when something wants the screen: a video playing, or a full-screen app."""
+    state = ctypes.c_ulong(0)
+    ctypes.windll.powrprof.CallNtPowerInformation(16, None, 0, ctypes.byref(state), 4)
+    if state.value & 0x2:                       # ES_DISPLAY_REQUIRED (videos, presentations)
+        return True
+    hwnd = user32.GetForegroundWindow()
+    if not hwnd:
+        return False
+    cls = ctypes.create_unicode_buffer(64)
+    user32.GetClassNameW(hwnd, cls, 64)
+    if cls.value in ("Progman", "WorkerW", "Shell_TrayWnd"):
+        return False                            # that's just the desktop
+    rect = wintypes.RECT()
+    user32.GetWindowRect(hwnd, ctypes.byref(rect))
+    w, h = screen_size()
+    return rect.left <= 0 and rect.top <= 0 and rect.right >= w and rect.bottom >= h
+
+
+SAVER = {"proc": None, "input": 0, "started": 0}
+
+
+def start_saver():
+    edge = edge_exe()
+    if not edge or (SAVER["proc"] and SAVER["proc"].poll() is None):
+        return False
+    url = (f"http://127.0.0.1:{PORT}/saver?scene={prefs()['saverScene']}"
+           f"&soul={quote(prefs()['soul'])}")
+    SAVER["proc"] = subprocess.Popen(
+        [str(edge), "--kiosk", url, "--edge-kiosk-type=fullscreen", "--no-first-run",
+         "--no-default-browser-check", "--hide-crash-restore-bubble", "--disable-session-crashed-bubble",
+         f"--user-data-dir={BACKUPS / 'saver-edge'}"],
+        creationflags=0x08000000)               # CREATE_NO_WINDOW
+    SAVER["input"], SAVER["started"] = last_input(), time.time()
+    return True
+
+
+def stop_saver():
+    p = SAVER["proc"]
+    SAVER["proc"] = None
+    if p and p.poll() is None:
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(p.pid)], capture_output=True,
+                       creationflags=0x08000000)
+
+
+def saver_loop():
+    while True:
+        try:
+            p = SAVER["proc"]
+            if p and p.poll() is None:
+                # you're back: any mouse move or key press closes it
+                if last_input() != SAVER["input"] and time.time() - SAVER["started"] > 1.5:
+                    stop_saver()
+            else:
+                SAVER["proc"] = None
+                minutes = prefs()["saver"]
+                if minutes and idle_ms() >= minutes * 60000 and not saver_blocked():
+                    start_saver()
+        except Exception:
+            pass
+        time.sleep(1)
 
 
 def snapshot_live(name):
@@ -1613,6 +1697,10 @@ def get_state():
         "lockScreen": prefs()["lockScreen"],
         "jingle": prefs()["jingle"],
         "soul": prefs()["soul"],
+        "saver": prefs()["saver"],
+        "saverScene": prefs()["saverScene"],
+        "saverMinutes": SAVER_MINUTES,
+        "saverOk": edge_exe() is not None,
         "souls": SOULS,
         "jingleChoices": {k: n for k, (n, _) in assets.JINGLES.items()},
         "customJingle": bool(custom_jingle()),
@@ -2130,6 +2218,21 @@ class Handler(BaseHTTPRequestHandler):
         elif url.path in ("/style.css", "/app.js"):
             self.send_file(UI / url.path[1:],
                            "text/css" if url.path.endswith(".css") else "text/javascript")
+        elif url.path == "/saver-close":
+            # the screensaver page saw you move the mouse / press a key
+            if SAVER["proc"] and time.time() - SAVER["started"] > 1.5:
+                stop_saver()
+            self.send_response(204)
+            self.end_headers()
+        elif url.path == "/saver":
+            self.send_file(UI / "saver.html", "text/html; charset=utf-8")
+        elif url.path.startswith("/res/"):
+            # widget pictures (the screensaver's sleeping dog)
+            name = url.path[5:]
+            p = ROOT / "widgets" / "WinUx" / "@Resources" / "Images" / name
+            if not re.fullmatch(r"[a-z0-9-]+\.png", name) or not p.is_file():
+                return self.send_json({"error": "not found"}, 404)
+            self.send_file(p, "image/png")
         elif url.path == "/event":
             # walls, widgets and the folder menu report things here (no password, only harmless events)
             name = q.get("e", [""])[0]
@@ -2304,6 +2407,19 @@ class Handler(BaseHTTPRequestHandler):
                     set_pref(key, bool(body.get("value")))
                     if body.get("value"):
                         match_lockscreen_later()
+                elif key == "saver":
+                    try:
+                        value = int(body.get("value", 0))
+                    except (TypeError, ValueError):
+                        value = -1
+                    if value not in SAVER_MINUTES:
+                        return self.send_json({"error": "Pick one of the times on the list."}, 400)
+                    set_pref(key, value)
+                elif key == "saverScene":
+                    value = str(body.get("value", ""))
+                    if value not in SAVER_SCENES:
+                        return self.send_json({"error": "Unknown screensaver."}, 400)
+                    set_pref(key, value)
                 elif key == "soul":
                     value = str(body.get("value", "")).lower()
                     if value not in SOULS:
@@ -2326,6 +2442,10 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(ACH.state())
             elif url.path == "/api/achievements-seen":
                 ACH.seen()
+                self.send_json({"ok": True})
+            elif url.path == "/api/saver-test":
+                if not start_saver():
+                    return self.send_json({"error": "The screensaver needs Microsoft Edge."}, 400)
                 self.send_json({"ok": True})
             elif url.path == "/api/folder-menu":
                 if body.get("on"):
@@ -2411,6 +2531,7 @@ def main():
         except Exception:
             pass                            # no tray is fine; the panel still works
     threading.Thread(target=achievement_clock, daemon=True, name="winux-achievements").start()
+    threading.Thread(target=saver_loop, daemon=True, name="winux-saver").start()
     print(f"WinUx is running at http://127.0.0.1:{PORT}/  (close this window to stop)")
     server.serve_forever()
 
