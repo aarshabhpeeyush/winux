@@ -1,6 +1,9 @@
 # Changelog
 
-## 1.0.2 (in progress)
+## 1.0.2 (2026-10-17)
+
+Everything from the 1.0.2 beta (new widgets and the Judgment Hall Sans fight), plus:
+
 
 - 4 new themes, each with its own animated pixel wallpaper:
   - **Hotland**: red rock, a magma river, steam vents, and the CORE pulsing in the distance.
