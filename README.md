@@ -30,6 +30,20 @@ Every theme comes with its own animated pixel-art wallpaper.
 | Waterfall | Glowing echo flowers and falling water |
 | Judgment Hall | **▶ Playable + ♪ Music**: press a key to fight Sans for fun (his song plays during the fight) |
 | Forgotten Man | **♪ Music**: his red tree, and his theme |
+| Hotland | Magma, steam vents and the CORE glowing in the distance |
+| The Ruins | Purple halls, falling red leaves, the big tree and Toriel's house |
+| Mettaton Stage | Pink spotlights, floating hearts and Mettaton EX posing |
+| Spamton's Basement | A dark alley full of [[DEALS]]; Spamton pops out of the dumpster |
+
+## Extras
+
+- **Share themes**: SHARE on any of your themes saves a `.winux` file (your wallpaper picture
+  goes inside). Friends open it with IMPORT THEME.
+- **Tray icon + Ctrl+Alt+T**: a soul by the clock switches themes; Ctrl+Alt+T = next theme.
+- **Startup jingle**: a chiptune when your PC starts. Pick WinUx boot, Vanishing, Dark World,
+  NGAAAAH!, or your own .wav / .mp3.
+- **Soul color**: pick one of the seven souls; every heart in WinUx follows it.
+- **Lock screen match**: your lock screen follows your wallpaper (live ones as a snapshot).
 
 ## Widgets
 
