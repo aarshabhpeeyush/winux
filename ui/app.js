@@ -579,7 +579,8 @@ for (const group of document.querySelectorAll(".looks")) {
 }
 
 const SOUND_TESTS = [["blip", "Click"], ["info", "Info"], ["warning", "Warning"], ["error", "Error"],
-                     ["save", "Notification"], ["heal", "Mail"], ["plug-in", "USB in"], ["unplug", "USB out"], ["alert", "Allow?"]];
+                     ["save", "Notification"], ["heal", "Mail"], ["plug-in", "USB in"], ["unplug", "USB out"], ["alert", "Allow?"],
+                     ["startup", "Startup jingle"]];
 for (const [file, name] of SOUND_TESTS) {
   const c = document.createElement("button");
   c.className = "chip on";

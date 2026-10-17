@@ -9,6 +9,8 @@
   - **Spamton's Basement**: a dark alley full of [[DEALS]]; Spamton pops out of the dumpster.
 - **Share themes as files**: SHARE on any of your themes saves a `.winux` file (with your
   wallpaper picture inside). Friends open it with IMPORT THEME.
+- **Startup jingle**: a short original chiptune plays when WinUx starts with your PC.
+  Switch it off in BACKUP; hear it in ICONS+SOUNDS.
 
 ## 1.0.2 beta (2026-10-15)
 

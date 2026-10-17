@@ -273,6 +273,24 @@ def snd_alert():  # for "allow changes?" prompts
     return px.tone(N("G5"), 0.1, duty=0.25) + px.rest(0.04) + px.tone(N("G5"), 0.1, duty=0.25) + px.tone(N("D6"), 0.18, duty=0.25)
 
 
+def snd_startup():
+    """WinUx's startup jingle (original): a melody, a bouncing bass and a sparkle at the end."""
+    beat = 0.13
+    melody = [("C5", 1), ("E5", 1), ("G5", 1), ("A5", 1), ("G5", 2), ("E5", 1), ("F5", 1),
+              ("G5", 1), ("B5", 1), ("C6", 4)]
+    bass = [("C3", 2), ("G3", 2), ("A3", 2), ("F3", 2), ("G3", 2), ("C3", 4)]
+    lead = []
+    for n, b in melody:
+        lead += px.tone(N(n), beat * b - 0.01, vol=0.28, duty=0.25) + px.rest(0.01)
+    low = []
+    for n, b in bass:
+        low += px.tone(N(n), beat * b - 0.02, vol=0.16, wave="triangle", decay=2) + px.rest(0.02)
+    sparkle = px.rest(beat * 10)
+    for n in ("C6", "E6", "G6", "C7", "G6", "C7"):
+        sparkle += px.tone(N(n), 0.05, vol=0.12, duty=0.125)
+    return px.mix(px.mix(lead, low), sparkle)
+
+
 # Windows event name -> (file, maker)
 SOUND_EVENTS = {
     ".Default": ("blip", snd_blip),
@@ -362,6 +380,9 @@ def build_sounds():
             write_if_changed(p, px.wav(maker()))
             made[name] = str(p)
         paths[event] = made[name]
+    p = folder / "startup.wav"
+    write_if_changed(p, px.wav(snd_startup()))
+    paths["startup"] = str(p)
     return paths
 
 

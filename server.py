@@ -1184,6 +1184,38 @@ def set_app_icons(pack):
     return {"changed": changed, "admin": admin_ok}
 
 
+# ---------------------------------------------------------------- WinUx's own preferences
+PREFS = BACKUPS / "prefs.json"
+PREF_DEFAULTS = {"startupJingle": True}
+
+
+def prefs():
+    try:
+        return {**PREF_DEFAULTS, **json.loads(PREFS.read_text(encoding="utf-8"))}
+    except (OSError, ValueError):
+        return dict(PREF_DEFAULTS)
+
+
+def set_pref(key, value):
+    p = prefs()
+    p[key] = value
+    PREFS.write_text(json.dumps(p, indent=2), encoding="utf-8")
+
+
+def play_startup_jingle():
+    """WinUx just started with the PC: play the jingle once the sound system is awake."""
+    import threading
+    import winsound
+
+    def go():
+        time.sleep(4)
+        try:
+            winsound.PlaySound(str(GENERATED / "sounds" / "startup.wav"), winsound.SND_FILENAME)
+        except RuntimeError:
+            pass
+    threading.Thread(target=go, daemon=True).start()
+
+
 # ---------------------------------------------------------------- start with Windows
 
 RUN = r"Software\Microsoft\Windows\CurrentVersion\Run"
@@ -1224,6 +1256,8 @@ def startup_state():
                     "on": bool(fam) and rget(TTB_TASK.format(fam=fam), "State", 0) in (2, 4)}
     items["windhawk"] = {"name": "Windhawk", "what": "Mods. Always starts (it's a Windows service).",
                          "installed": WINDHAWK.is_file(), "on": WINDHAWK.is_file(), "fixed": True}
+    items["jingle"] = {"name": "Startup jingle", "what": "A little chiptune when WinUx starts with your PC.",
+                       "installed": True, "on": prefs()["startupJingle"]}
     return items
 
 
@@ -1242,6 +1276,8 @@ def set_startup(key, on):
         set_approved("StartupFolder", "Rainmeter.lnk", on)
     elif key == "ttb" and ttb_family():
         rset(TTB_TASK.format(fam=ttb_family()), "State", 2 if on else 1)
+    elif key == "jingle":
+        set_pref("startupJingle", bool(on))
     else:
         raise RuntimeError("That one can't be switched here.")
 
@@ -2005,6 +2041,8 @@ def main():
         return
     if "--no-browser" not in sys.argv:
         webbrowser.open(f"http://127.0.0.1:{PORT}/")
+    elif prefs()["startupJingle"]:
+        play_startup_jingle()               # started with Windows: a little "boot" tune
     print(f"WinUx is running at http://127.0.0.1:{PORT}/  (close this window to stop)")
     server.serve_forever()
 
