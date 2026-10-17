@@ -593,7 +593,7 @@ for (const group of document.querySelectorAll(".looks")) {
 
 const SOUND_TESTS = [["blip", "Click"], ["info", "Info"], ["warning", "Warning"], ["error", "Error"],
                      ["save", "Notification"], ["heal", "Mail"], ["plug-in", "USB in"], ["unplug", "USB out"], ["alert", "Allow?"],
-                     ["startup", "Startup jingle"]];
+                     ];
 for (const [file, name] of SOUND_TESTS) {
   const c = document.createElement("button");
   c.className = "chip on";
@@ -602,7 +602,49 @@ for (const [file, name] of SOUND_TESTS) {
   $("soundTests").appendChild(c);
 }
 
+// startup jingle: the built-in ones, plus your own .wav
+function renderJingles() {
+  const box = $("jingles");
+  box.innerHTML = "";
+  const choices = { ...(state.jingleChoices || {}) };
+  for (const [key, name] of Object.entries(choices)) box.appendChild(jingleButton(key, name, `/gen/sounds/${key === "winux" ? "startup" : "startup-" + key}.wav`));
+  if (state.customJingle) box.appendChild(jingleButton("custom", "Your own", "/jingle-custom"));
+  const up = document.createElement("label");
+  up.className = "look";
+  up.innerHTML = `<div class="look-pic plain">+ .WAV</div><div class="look-name">Your own</div><input type="file" accept=".wav" hidden>`;
+  up.querySelector("input").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      await api("/api/upload", { method: "POST", body: file, headers: { "X-Filename": file.name, "X-Kind": "jingle" } });
+      state = { ...state, ...(await api("/api/state")) };
+      renderJingles();
+      new Audio("/jingle-custom?" + Date.now()).play();
+      say("Your own sound will play when WinUx starts!");
+    } catch (err) { say(err.message, true); }
+  });
+  box.appendChild(up);
+}
+function jingleButton(key, name, src) {
+  const b = document.createElement("button");
+  b.className = "look" + (state.jingle === key ? " on" : "");
+  b.innerHTML = `<div class="look-pic plain">♪</div><div class="look-name"></div>`;
+  b.querySelector(".look-name").textContent = name;
+  b.addEventListener("click", async () => {
+    new Audio(src + (src.includes("?") ? "&" : "?") + "v=" + Date.now()).play();
+    try {
+      await api("/api/pref", { method: "POST", body: { key: "jingle", value: key } });
+      state.jingle = key;
+      renderJingles();
+      say(`"${name}" will play when WinUx starts.`);
+    } catch (err) { say(err.message, true); }
+  });
+  return b;
+}
+
 function renderLooks() {
+  renderJingles();
   $("accentCursorPic").src = `/gen/previews/cursors-pixel-accent.png?v=${(state.accent || "").slice(1)}`;
   for (const group of document.querySelectorAll(".looks")) {
     for (const b of group.querySelectorAll(".look")) b.classList.toggle("on", state[group.dataset.key] === b.dataset.val);

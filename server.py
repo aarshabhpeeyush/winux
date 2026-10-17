@@ -1186,7 +1186,17 @@ def set_app_icons(pack):
 
 # ---------------------------------------------------------------- WinUx's own preferences
 PREFS = BACKUPS / "prefs.json"
-PREF_DEFAULTS = {"startupJingle": True, "tray": True, "lastTheme": None, "lockScreen": False}
+PREF_DEFAULTS = {"startupJingle": True, "tray": True, "lastTheme": None, "lockScreen": False, "jingle": "winux"}
+CUSTOM_JINGLE = BACKUPS / "custom-jingle.wav"
+
+
+def jingle_file():
+    """The startup sound to play: the chosen built-in one, or your own .wav."""
+    pick = prefs()["jingle"]
+    if pick == "custom" and CUSTOM_JINGLE.is_file():
+        return CUSTOM_JINGLE
+    name = "startup.wav" if pick == "winux" or pick not in assets.JINGLES else f"startup-{pick}.wav"
+    return GENERATED / "sounds" / name
 
 
 def prefs():
@@ -1210,7 +1220,7 @@ def play_startup_jingle():
     def go():
         time.sleep(4)
         try:
-            winsound.PlaySound(str(GENERATED / "sounds" / "startup.wav"), winsound.SND_FILENAME)
+            winsound.PlaySound(str(jingle_file()), winsound.SND_FILENAME)
         except RuntimeError:
             pass
     threading.Thread(target=go, daemon=True).start()
@@ -1453,6 +1463,9 @@ def get_state():
     return {
         "version": VERSION,
         "lockScreen": prefs()["lockScreen"],
+        "jingle": prefs()["jingle"],
+        "jingleChoices": {k: n for k, (n, _) in assets.JINGLES.items()},
+        "customJingle": CUSTOM_JINGLE.is_file(),
         "win11": WIN11,
         "webview2": webview2_installed(),
         "appsDark": rget(PERSONALIZE, "AppsUseLightTheme", 1) == 0,
@@ -1975,6 +1988,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json({"error": "not found"}, 404)
             ctype = {".png": "image/png", ".gif": "image/gif"}.get(p.suffix.lower(), "image/jpeg")
             self.send_file(p, ctype)
+        elif url.path == "/jingle-custom":
+            if not CUSTOM_JINGLE.is_file():
+                return self.send_json({"error": "not found"}, 404)
+            self.send_file(CUSTOM_JINGLE, "audio/wav")
         elif url.path.startswith("/livewall/"):
             # a file inside one of our web wallpapers (pictures, music.mp3...), so
             # things next to index.html load in previews just like in Lively
@@ -2052,6 +2069,16 @@ class Handler(BaseHTTPRequestHandler):
                 # Raw image bytes; X-Filename says what it was called, X-Kind where it goes.
                 stem, ext = safe_name(self.headers.get("X-Filename", "image.png"))
                 kind = self.headers.get("X-Kind")
+                if kind == "jingle":
+                    n_bytes = int(self.headers.get("Content-Length", 0))
+                    if ext != ".wav" or n_bytes > 5 * 1024 * 1024:
+                        return self.send_json({"error": "Use a .wav file under 5 MB."}, 400)
+                    data = self.rfile.read(n_bytes)
+                    if data[:4] != b"RIFF" or data[8:12] != b"WAVE":
+                        return self.send_json({"error": "That isn't a real .wav file."}, 400)
+                    CUSTOM_JINGLE.write_bytes(data)
+                    set_pref("jingle", "custom")
+                    return self.send_json(prefs())
                 if kind == "live":
                     if ext not in VIDEO_EXTS:
                         return self.send_json({"error": "Use an MP4, WEBM, MOV, MKV or GIF."}, 400)
@@ -2093,12 +2120,18 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json({"id": save_theme(name, body.get("settings", {}),
                                                  str(body.get("blurb", "")))})
             elif url.path == "/api/pref":
-                key, value = str(body.get("key", "")), bool(body.get("value"))
-                if key != "lockScreen":
+                key = str(body.get("key", ""))
+                if key == "lockScreen":
+                    set_pref(key, bool(body.get("value")))
+                    if body.get("value"):
+                        match_lockscreen_later()
+                elif key == "jingle":
+                    value = str(body.get("value", ""))
+                    if value not in assets.JINGLES and not (value == "custom" and CUSTOM_JINGLE.is_file()):
+                        return self.send_json({"error": "Unknown jingle."}, 400)
+                    set_pref(key, value)
+                else:
                     return self.send_json({"error": "Unknown setting."}, 400)
-                set_pref(key, value)
-                if value:
-                    match_lockscreen_later()
                 self.send_json(prefs())
             elif url.path == "/api/restore":
                 self.send_json(restore_original())

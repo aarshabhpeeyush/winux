@@ -291,6 +291,43 @@ def snd_startup():
     return px.mix(px.mix(lead, low), sparkle)
 
 
+def snd_vanish():
+    """Inspired by a certain scientist fading out of existence: warbling notes that sink, then static."""
+    out = []
+    for i, n in enumerate(("B5", "G5", "E5", "C#5", "A#4", "G4")):
+        out += px.tone(N(n), 0.11, vol=0.24 - i * 0.025, duty=0.25, slide=-120 - i * 40, decay=3)
+    hiss = px.rest(0.45) + px.tone(0, 0.6, vol=0.08, wave="noise", decay=4)
+    return px.mix(out + px.tone(N("D4"), 0.5, vol=0.12, wave="triangle", slide=-200, decay=4), hiss)
+
+
+def snd_darkworld():
+    """Inspired by stepping into the Dark World: a soft, echoing chime."""
+    bells = []
+    for n in ("G4", "D5", "G5", "B5", "D6"):
+        bells += px.tone(N(n), 0.16, vol=0.22, wave="triangle", decay=5)
+    echo = px.rest(0.08) + [x * 0.4 for x in bells]
+    drone = px.tone(N("G2"), 1.3, vol=0.14, wave="triangle", decay=1.5)
+    shine = px.rest(0.8) + px.tone(N("G6"), 0.5, vol=0.08, duty=0.125, decay=4)
+    return px.mix(px.mix(bells, echo), px.mix(drone, shine))
+
+
+def snd_ngah():
+    """Inspired by a certain fish knight's battle cry: a rising, crunchy NGAAAAH."""
+    yell = px.tone(170, 1.1, vol=0.26, duty=0.25, slide=520, decay=0.6)
+    grit = px.tone(0, 1.1, vol=0.06, wave="noise", decay=0.6)
+    hit = px.rest(1.1) + px.tone(N("A5"), 0.08, vol=0.25) + px.tone(N("E6"), 0.25, vol=0.25, decay=5)
+    return px.mix(px.mix(yell, grit), hit)
+
+
+# startup jingle choices: key -> (name in the panel, maker)
+JINGLES = {
+    "winux": ("WinUx boot", snd_startup),
+    "vanish": ("Vanishing", snd_vanish),
+    "darkworld": ("Dark World", snd_darkworld),
+    "ngah": ("NGAAAAH!", snd_ngah),
+}
+
+
 # Windows event name -> (file, maker)
 SOUND_EVENTS = {
     ".Default": ("blip", snd_blip),
@@ -380,9 +417,11 @@ def build_sounds():
             write_if_changed(p, px.wav(maker()))
             made[name] = str(p)
         paths[event] = made[name]
-    p = folder / "startup.wav"
-    write_if_changed(p, px.wav(snd_startup()))
-    paths["startup"] = str(p)
+    for key, (_, maker) in JINGLES.items():
+        p = folder / ("startup.wav" if key == "winux" else f"startup-{key}.wav")
+        write_if_changed(p, px.wav(maker()))
+        paths["startup-" + key] = str(p)
+    paths["startup"] = paths["startup-winux"]
     return paths
 
 

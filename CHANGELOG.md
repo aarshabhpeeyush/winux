@@ -9,8 +9,9 @@
   - **Spamton's Basement**: a dark alley full of [[DEALS]]; Spamton pops out of the dumpster.
 - **Share themes as files**: SHARE on any of your themes saves a `.winux` file (with your
   wallpaper picture inside). Friends open it with IMPORT THEME.
-- **Startup jingle**: a short original chiptune plays when WinUx starts with your PC.
-  Switch it off in BACKUP; hear it in ICONS+SOUNDS.
+- **Startup jingle**: a short chiptune plays when WinUx starts with your PC. Pick one in
+  ICONS+SOUNDS: WinUx boot, Vanishing, Dark World or NGAAAAH! (originals inspired by the
+  games), or YOUR OWN .wav. Switch it off in BACKUP.
 - **Tray icon + hotkey**: a red soul by the clock. Click it to open WinUx or switch to any
   theme; **Ctrl+Alt+T** flips to the next theme from anywhere.
 - **Lock screen matches your wallpaper** (WALLPAPER tab): live wallpapers become a snapshot.
