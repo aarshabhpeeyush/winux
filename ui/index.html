@@ -291,7 +291,12 @@
         <div class="row">
           <input type="text" id="themeName" placeholder="Name this look..." maxlength="40">
           <button class="btn primary" id="saveTheme">SAVE CURRENT LOOK</button>
+          <label class="btn">
+            IMPORT THEME
+            <input type="file" id="importTheme" accept=".winux,.json" hidden>
+          </label>
         </div>
+        <p class="hint small">* Click SHARE on one of your themes to get a .winux file. Send it to a friend; they click IMPORT THEME.</p>
         <div class="label">* Your themes</div>
         <div class="themes" id="myThemes"></div>
         <div class="label">* Built-in</div>

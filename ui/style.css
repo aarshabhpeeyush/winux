@@ -447,6 +447,18 @@ input[type=text]:focus, select:focus { outline: none; border-color: var(--select
   cursor: pointer;
   font-size: 20px;
 }
+.theme-share {
+  position: absolute;
+  top: 6px; right: 40px;
+  background: #000;
+  border: 2px solid var(--line);
+  height: 28px;
+  padding: 0 6px;
+  line-height: 24px;
+  cursor: pointer;
+  font-size: 16px;
+}
+.theme-share:hover { border-color: var(--select); color: var(--select); }
 .theme-del:hover { border-color: var(--soul); color: var(--soul); }
 .empty { color: var(--muted); }
 

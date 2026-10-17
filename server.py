@@ -1685,6 +1685,68 @@ def list_themes():
     return {"presets": [extras(t) for t in PRESETS], "mine": [extras(t) for t in mine]}
 
 
+# ---------------------------------------------------------------- sharing themes
+# A .winux file is one JSON document: the theme's settings, plus its wallpaper
+# picture packed inside (base64) when it's one of yours.
+THEME_KEYS = {"appsDark", "systemDark", "transparency", "accent", "accentOnTaskbar", "accentOnTitlebars",
+              "wallpaper", "wallpaperStyle", "taskbarAlign", "searchMode", "taskView", "autoHide",
+              "cursors", "sounds", "icons", "tbStyle", "tbColor", "tbOpacity", "tbLine", "tbMax",
+              "widgets", "live"}
+
+
+def export_theme(tid):
+    import base64
+    p = THEMES / (safe_name(tid + ".json", "theme")[0] + ".json")
+    t = json.loads(p.read_text(encoding="utf-8"))
+    settings = {k: v for k, v in (t.get("settings") or {}).items() if k in THEME_KEYS}
+    out = {"winux": 1, "version": VERSION, "name": t.get("name", "Theme"), "blurb": t.get("blurb", ""),
+           "settings": settings, "files": {}}
+    wp = settings.get("wallpaper") or ""
+    if wp.split(":", 1)[0] in ("lib", "art", "backup"):
+        f = wallpaper_path(wp)
+        if f and f.stat().st_size < 30 * 1024 * 1024:
+            out["files"]["wallpaper"] = {"name": f.name, "data": base64.b64encode(f.read_bytes()).decode()}
+            settings["wallpaper"] = "file:wallpaper"
+        else:
+            settings.pop("wallpaper", None)
+    live = settings.get("live") or ""
+    if live and not (live.startswith("mine:") and (LIVE_WALLS / live[5:]).is_dir()):
+        settings["live"] = None            # someone's own video doesn't travel with the theme
+    return out
+
+
+def import_theme(doc):
+    import base64
+    if not isinstance(doc, dict) or doc.get("winux") != 1 or not isinstance(doc.get("settings"), dict):
+        raise ValueError("That isn't a WinUx theme file.")
+    settings = {k: v for k, v in doc["settings"].items() if k in THEME_KEYS}
+    if "accent" in settings and not re.fullmatch(r"#[0-9a-fA-F]{6}", str(settings["accent"])):
+        settings.pop("accent")
+    if "widgets" in settings and not (isinstance(settings["widgets"], list) and all(isinstance(w, str) for w in settings["widgets"])):
+        settings.pop("widgets")
+    live = settings.get("live")
+    if live and not (isinstance(live, str) and live.startswith("mine:") and (LIVE_WALLS / safe_name(live[5:] + ".x", "")[0]).is_dir()):
+        settings["live"] = None
+    pic = (doc.get("files") or {}).get("wallpaper")
+    if settings.get("wallpaper") == "file:wallpaper" and isinstance(pic, dict):
+        stem, ext = safe_name(str(pic.get("name", "wallpaper.png")), "wallpaper")
+        data = base64.b64decode(str(pic.get("data", "")), validate=True)
+        is_image = (data[:4] == bytes([0x89, 0x50, 0x4E, 0x47])      # PNG
+                    or data[:3] == bytes([0xFF, 0xD8, 0xFF])      # JPG
+                    or data[:2] == b"BM")                         # BMP
+        if ext not in IMAGE_EXTS or not is_image:
+            raise ValueError("The picture inside that theme isn't a PNG, JPG or BMP.")
+        target, n = WALLPAPERS / (stem + ext), 2
+        while target.exists():
+            target, n = WALLPAPERS / f"{stem}-{n}{ext}", n + 1
+        target.write_bytes(data)
+        settings["wallpaper"] = "lib:" + target.name
+    elif str(settings.get("wallpaper", "")).split(":", 1)[0] not in ("lib", "art", "win", "backup"):
+        settings.pop("wallpaper", None)
+    name = str(doc.get("name") or "Shared theme")[:40]
+    return save_theme(name, settings, str(doc.get("blurb") or "Shared with me.")[:120])
+
+
 def save_theme(name, settings, blurb=""):
     stem, _ = safe_name(name + ".json", "theme")
     data = {"name": name[:40], "blurb": blurb[:120], "settings": settings,
@@ -1823,6 +1885,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(list_wallpapers())
         elif url.path == "/api/themes":
             self.send_json(list_themes())
+        elif url.path == "/api/theme-export":
+            try:
+                self.send_json(export_theme(q.get("id", [""])[0]))
+            except (OSError, ValueError):
+                self.send_json({"error": "Couldn't find that theme."}, 404)
         elif url.path == "/api/live":
             self.send_json(list_live())
         elif url.path == "/api/mods":
@@ -1869,6 +1936,10 @@ class Handler(BaseHTTPRequestHandler):
                         out.write(chunk)
                         left -= len(chunk)
                 return self.send_json({"id": prefix + target.name})
+
+            if url.path == "/api/theme-import":
+                doc = json.loads(self.read_body(45 * 1024 * 1024) or b"{}")
+                return self.send_json({"id": import_theme(doc)})
 
             body = json.loads(self.read_body(1024 * 1024) or b"{}")
             if url.path == "/api/apply":

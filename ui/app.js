@@ -785,9 +785,46 @@ function themeCard(t, deletable) {
       loadThemes();
     });
     b.appendChild(del);
+
+    // SHARE: download this theme as one .winux file (with its wallpaper inside)
+    const share = document.createElement("span");
+    share.className = "theme-share";
+    share.textContent = "SHARE";
+    share.title = "Save this theme as a file to send to friends";
+    share.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      try {
+        const doc = await api("/api/theme-export?id=" + encodeURIComponent(t.id));
+        const blob = new Blob([JSON.stringify(doc)], { type: "application/json" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = (t.name || "theme").replace(/[^A-Za-z0-9 _-]+/g, "") + ".winux";
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(link.href), 5000);
+        say(`"${t.name}" saved as a .winux file. Send it to a friend!`);
+      } catch (err) {
+        say(err.message, true);
+      }
+    });
+    b.appendChild(share);
   }
   return b;
 }
+
+// IMPORT THEME: open a .winux file a friend sent
+$("importTheme").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  try {
+    const doc = JSON.parse(await file.text());
+    await api("/api/theme-import", { method: "POST", body: doc });
+    say(`Imported "${doc.name || "a theme"}"! It's in Your themes. Click it to try it on.`);
+    loadThemes();
+  } catch (err) {
+    say(err instanceof SyntaxError ? "That isn't a WinUx theme file." : err.message, true);
+  }
+});
 
 async function loadThemes() {
   const { presets, mine } = await api("/api/themes");
