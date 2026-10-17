@@ -292,12 +292,43 @@ def snd_startup():
 
 
 def snd_vanish():
-    """Inspired by a certain scientist fading out of existence: warbling notes that sink, then static."""
-    out = []
-    for i, n in enumerate(("B5", "G5", "E5", "C#5", "A#4", "G4")):
-        out += px.tone(N(n), 0.11, vol=0.24 - i * 0.025, duty=0.25, slide=-120 - i * 40, decay=3)
-    hiss = px.rest(0.45) + px.tone(0, 0.6, vol=0.08, wave="noise", decay=4)
-    return px.mix(out + px.tone(N("D4"), 0.5, vol=0.12, wave="triangle", slide=-200, decay=4), hiss)
+    """Inspired by a certain scientist fading away: a glitchy, metallic shimmer.
+    Tiny grains hop between a cluster of off-scale pitches (measured from the
+    feel of the original, but made fresh from chiptune waves), over a shimmering
+    bed, all fading out slowly; a bit of static fades faster."""
+    import math
+    import random
+    rnd = random.Random(7)                              # same sound every build
+    rate, dur = px.RATE, 2.2
+    cluster = [425, 635, 780, 1045, 1100, 1475, 1565, 1660]
+    n = int(rate * dur)
+    out = [0.0] * n
+    # grains: a new pitch every 30-45 ms
+    i = int(rate * 0.03)
+    while i < n:
+        g = int(rate * rnd.uniform(0.03, 0.045))
+        f = rnd.choice(cluster)
+        duty = rnd.choice((0.125, 0.25))
+        phase = 0.0
+        for k in range(i, min(n, i + g)):
+            phase = (phase + f / rate) % 1.0
+            out[k] += (1.0 if phase < duty else -1.0) * 0.11
+        i += g
+    # the shimmering bed (the two strongest tones, wobbling a little)
+    p1 = p2 = 0.0
+    for k in range(n):
+        t = k / rate
+        wob = 1 + 0.004 * math.sin(t * 40)
+        p1 = (p1 + 635 * wob / rate) % 1.0
+        p2 = (p2 + 425 * wob / rate) % 1.0
+        tri = lambda p: 4 * abs(p - 0.5) - 1
+        out[k] += 0.09 * tri(p1) + 0.06 * tri(p2)
+    # envelope: a sudden start, then a long fade; static that fades faster
+    for k in range(n):
+        t = k / rate
+        attack = min(1.0, t / 0.02) if t > 0.03 else 0.0
+        out[k] = 1.7 * (out[k] * attack * math.exp(-t * 2.1) + rnd.uniform(-1, 1) * 0.05 * attack * math.exp(-t * 4))
+    return out
 
 
 def snd_darkworld():
