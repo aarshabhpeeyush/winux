@@ -138,6 +138,8 @@
           </div>
           <label class="toggle"><input type="checkbox" id="liveKeyboard"><span>Let wallpapers use my keyboard
             <small>(for games like Soul Red - click the desktop, then play)</small></span></label>
+          <label class="toggle"><input type="checkbox" id="spamtonShop"><span>Spamton's [[SHOP]] in Spamton's Basement
+            <small>(click the dumpster)</small></span></label>
           <div class="seg wall-filter" id="liveFilter">
             <button data-val="all" class="on">ALL</button>
             <button data-val="winux">WINUX</button>
@@ -381,6 +383,7 @@
       <!-- ACHIEVEMENTS -->
       <section class="tab box hidden" id="tab-achievements">
         <h2>ACHIEVEMENTS</h2>
+        <label class="toggle"><input type="checkbox" id="achOn"><span>Count achievements and pop up when I get one</span></label>
         <div class="ach-top"><div class="ach-bar"><div id="achBar"></div></div><span id="achText"></span></div>
         <div class="ach-stats" id="achStats"></div>
         <div class="label">* Using WinUx</div><div class="achs" data-cat="winux"></div>
@@ -407,6 +410,13 @@
         <p class="hint small">* Colors, cursors, icons and sounds stay on their own after a restart.
           These programs keep the moving parts going.</p>
         <div class="toggles" id="startupList"></div>
+
+        <div class="label">* Turn off WinUx</div>
+        <p class="hint small">* Closes WinUx and its tray icon for now. Your look stays the same.
+          To turn it back on, double-click <b>Start WinUx</b> (or restart your PC, if it starts with Windows).</p>
+        <div class="row">
+          <button class="btn danger" id="quitWinux">TURN OFF WINUX</button>
+        </div>
       </section>
 
       <div class="dialog box" id="dialog"><span class="star">*</span><span id="dialogText"></span></div>

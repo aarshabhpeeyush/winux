@@ -1252,7 +1252,8 @@ def set_app_icons(pack):
 # ---------------------------------------------------------------- WinUx's own preferences
 PREFS = BACKUPS / "prefs.json"
 PREF_DEFAULTS = {"startupJingle": True, "tray": True, "lastTheme": None, "lockScreen": False, "jingle": "winux",
-                 "soul": "#ff1a1a", "saver": 0, "saverScene": "random"}
+                 "soul": "#ff1a1a", "saver": 0, "saverScene": "random", "achievements": True,
+                 "spamtonShop": True}
 SAVER_MINUTES = (0, 1, 3, 5, 10, 15, 30)
 SAVER_SCENES = ("random", "soul", "stars", "dog", "save")
 # the seven human souls: color -> trait
@@ -1477,7 +1478,8 @@ def _achievement_sound():
 
 ACH = achievements.Achievements(BACKUPS / "achievements.json",
                                 notify=lambda title, text: TRAY and TRAY.notify(title, text),
-                                sound=_achievement_sound)
+                                sound=_achievement_sound,
+                                enabled=lambda: prefs()["achievements"])
 EVENTS_FILE = BACKUPS / "events.txt"     # the Rainmeter widgets write events here
 
 
@@ -1698,6 +1700,8 @@ def get_state():
         "jingle": prefs()["jingle"],
         "soul": prefs()["soul"],
         "saver": prefs()["saver"],
+        "achievementsOn": prefs()["achievements"],
+        "spamtonShop": prefs()["spamtonShop"],
         "saverScene": prefs()["saverScene"],
         "saverMinutes": SAVER_MINUTES,
         "saverOk": edge_exe() is not None,
@@ -2218,6 +2222,15 @@ class Handler(BaseHTTPRequestHandler):
         elif url.path in ("/style.css", "/app.js"):
             self.send_file(UI / url.path[1:],
                            "text/css" if url.path.endswith(".css") else "text/javascript")
+        elif url.path == "/wall-prefs":
+            # live walls ask this (Spamton's shop on or off); anyone may read it
+            body = json.dumps({"spamtonShop": prefs()["spamtonShop"]}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
         elif url.path == "/saver-close":
             # the screensaver page saw you move the mouse / press a key
             if SAVER["proc"] and time.time() - SAVER["started"] > 1.5:
@@ -2407,6 +2420,8 @@ class Handler(BaseHTTPRequestHandler):
                     set_pref(key, bool(body.get("value")))
                     if body.get("value"):
                         match_lockscreen_later()
+                elif key in ("achievements", "spamtonShop"):
+                    set_pref(key, bool(body.get("value")))
                 elif key == "saver":
                     try:
                         value = int(body.get("value", 0))
@@ -2443,6 +2458,13 @@ class Handler(BaseHTTPRequestHandler):
             elif url.path == "/api/achievements-seen":
                 ACH.seen()
                 self.send_json({"ok": True})
+            elif url.path == "/api/quit":
+                # TURN OFF WINUX: close the screensaver and tray icon, then stop
+                stop_saver()
+                if TRAY:
+                    TRAY.stop()
+                self.send_json({"ok": True})
+                threading.Timer(0.5, os._exit, (0,)).start()
             elif url.path == "/api/saver-test":
                 if not start_saver():
                     return self.send_json({"error": "The screensaver needs Microsoft Edge."}, 400)

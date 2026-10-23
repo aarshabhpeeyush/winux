@@ -194,6 +194,8 @@ function render() {
   renderSouls();
   $("lockMatch").checked = !!state.lockScreen;
   $("folderMenu").checked = !!state.folderMenu;
+  $("spamtonShop").checked = state.spamtonShop !== false;
+  $("achOn").checked = state.achievementsOn !== false;
   renderSaver();
   $("coloredFolders").textContent = state.coloredFolders
     ? `* You've colored ${state.coloredFolders} folder${state.coloredFolders === 1 ? "" : "s"}.` : "";
@@ -484,6 +486,29 @@ $("resetFolders").addEventListener("click", async () => {
     render();
     say(`${r.reset} folder${r.reset === 1 ? " is" : "s are"} back to normal.`);
   } catch (err) { say(err.message, true); }
+});
+
+// on/off switches
+async function setSwitch(key, value, msg) {
+  try {
+    await api("/api/pref", { method: "POST", body: { key, value } });
+    state = { ...state, ...(await api("/api/state")) };
+    render();
+    say(msg);
+  } catch (e) { say(e.message, true); }
+}
+$("spamtonShop").addEventListener("change", (e) => setSwitch("spamtonShop", e.target.checked,
+  e.target.checked ? "SPAMTON'S [[SHOP]] IS [[OPEN]] FOR [[BUSINESS]]!" : "Spamton's shop is closed. He'll still pop out to say hi."));
+$("achOn").addEventListener("change", (e) => setSwitch("achievements", e.target.checked,
+  e.target.checked ? "Achievements are on!" : "Achievements are off. The ones you have stay saved."));
+
+// TURN OFF WINUX
+$("quitWinux").addEventListener("click", async () => {
+  if (!confirm("Turn off WinUx? Your look stays. Double-click Start WinUx to turn it back on.")) return;
+  try { await api("/api/quit", { method: "POST" }); } catch { /* it's already going */ }
+  document.querySelector(".app").innerHTML =
+    '<div class="box" style="grid-column:1/-1;padding:40px;text-align:center"><h2>WINUX IS OFF</h2>' +
+    '<p class="hint">* Your look stays the way it is.<br>* Double-click <b>Start WinUx</b> to turn it back on.</p></div>';
 });
 
 // pixel screensaver

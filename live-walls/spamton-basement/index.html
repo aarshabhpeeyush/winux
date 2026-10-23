@@ -212,6 +212,15 @@ const SHOP_ITEMS = [
 const HELLO = ["HEY EVERY BUDDY!!", "IT'S [[ME]], SPAMTON G. SPAMTON!", "[[NOW'S YOUR CHANCE]]!!", "WHAT'LL IT BE, [[KID]]?"];
 const SOLD = ["YOU JUST GOT [[SCAMMED]]!!", "NO REFUNDS!!", "PLEASURE DOING [[BUSINESS]]!", "[[HEAVEN]] SAKES, WHAT A DEAL!"];
 let shop = null;   // { sel, hits: [[x, y, w, h, i]] }
+let shopOn = true; // WinUx can switch the shop off (LIVE WALLS tab)
+function checkShopSwitch() {
+  fetch("http://127.0.0.1:7777/wall-prefs").then((r) => r.json()).then((p) => {
+    shopOn = p.spamtonShop !== false;
+    if (!shopOn && shop) closeShop();
+  }).catch(() => {});
+}
+checkShopSwitch();
+setInterval(checkShopSwitch, 15000);
 
 function openShop() {
   shop = { sel: 0, hits: [] };
@@ -262,7 +271,7 @@ c.addEventListener("mousedown", (e) => {
   }
   // the dumpster (and the space above it where Spamton pops out)
   const groundY = Math.round(H * 0.75), dx = W * 0.5, dw = 80 * S, dtop = groundY - 36 * S + 6 * S;
-  if (opts.spamton && Math.abs(x - dx) < dw / 2 + 4 * S && y > dtop - 70 * S && y < groundY + 8 * S) openShop();
+  if (opts.spamton && shopOn && Math.abs(x - dx) < dw / 2 + 4 * S && y > dtop - 70 * S && y < groundY + 8 * S) openShop();
 });
 addEventListener("keydown", (e) => {
   if (!shop) return;

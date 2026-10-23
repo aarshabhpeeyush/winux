@@ -65,9 +65,10 @@ PANEL_EVENTS = PUBLIC_EVENTS | {"share", "logo"}
 
 
 class Achievements:
-    def __init__(self, path, notify=None, sound=None):
+    def __init__(self, path, notify=None, sound=None, enabled=None):
         self.path = Path(path)
         self.notify, self.sound = notify, sound
+        self.enabled = enabled or (lambda: True)     # switched off: nothing is counted
         self.lock = threading.Lock()
         self.last = {}          # event -> time, so spamming one event doesn't count 1000 times
         self.data = self._load()
@@ -125,6 +126,8 @@ class Achievements:
 
     def event(self, name, value=None, gap=0.4):
         """Count something that happened. `value` adds to a list (themes, souls...)."""
+        if not self.enabled():
+            return []
         with self.lock:
             now = time.time()
             if gap and now - self.last.get((name, value), 0) < gap:

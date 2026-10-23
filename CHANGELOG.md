@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.3 (patches)
+
+- **Off switches**: turn achievements off (ACHIEVEMENTS tab; the ones you have stay saved),
+  turn Spamton's [[SHOP]] off (LIVE WALLS tab), and the folder color menu already has its
+  own switch (ICONS+SOUNDS).
+- **TURN OFF WINUX** (BACKUP tab): closes WinUx and its tray icon. Your look stays.
+  Double-click Start WinUx to turn it back on.
+
 ## 1.0.3 (2026-10-17)
 
 - **Cursor maker** (ICONS+SOUNDS → ✎ DRAW): draw your own arrow, hand and a 2 to 4 frame
